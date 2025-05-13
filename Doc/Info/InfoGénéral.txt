@@ -1,0 +1,37 @@
+Pour contrôler un moteur pas à pas à l'aide du driver CL42T (V4.1) avec un microcontrôleur STM32, voici les étapes à suivre :
+
+1. Connexion matérielle :
+Alimentation : Le driver CL42T nécessite une alimentation en courant continu de 24 à 48 V. Assurez-vous que votre alimentation correspond à ces spécifications.
+
+Connexions du moteur : Connectez les enroulements du moteur pas à pas aux bornes de sortie du driver en respectant les indications du manuel du moteur et du driver.
+
+Signaux de contrôle : Le driver CL42T dispose de plusieurs entrées pour le contrôle du moteur :
+
+PUL+ et PUL- (Pulse) : Ces entrées reçoivent les impulsions de commande pour chaque pas du moteur.
+
+DIR+ et DIR- (Direction) : Ces entrées déterminent le sens de rotation du moteur.
+
+ENA+ et ENA- (Enable) : Ces entrées activent ou désactivent le driver.
+
+Les entrées PUL+, DIR+ et ENA+ peuvent être connectées aux broches GPIO du STM32 configurées en sortie, tandis que les entrées PUL-, DIR- et ENA- peuvent être reliées à la masse commune.
+
+2. Configuration du STM32 :
+Génération des signaux : Utilisez les timers internes du STM32 pour générer les signaux nécessaires :
+
+Signal PUL (Pulse) : Configurez un timer pour générer un signal PWM dont la fréquence déterminera la vitesse du moteur. Chaque front montant de ce signal correspondra à un pas du moteur.
+
+Signal DIR (Direction) : Utilisez une broche GPIO pour définir le sens de rotation du moteur. Un état haut peut correspondre à une direction, et un état bas à l'autre.
+
+Signal ENA (Enable) : Utilisez une autre broche GPIO pour activer ou désactiver le driver.
+
+3. Contrôle du moteur :
+Rotation continue : Pour faire tourner le moteur dans une direction spécifique, définissez l'état de la broche DIR, activez le driver via la broche ENA, puis générez un signal PWM sur la broche PUL à la fréquence souhaitée.
+
+Nombre précis de tours : Pour effectuer un nombre spécifique de tours, calculez le nombre total d'impulsions nécessaires en fonction du nombre de pas par tour du moteur et du micro-pas configuré sur le driver. Ensuite, générez le nombre exact d'impulsions sur la broche PUL.
+
+4. Considérations supplémentaires :
+Niveaux logiques : Assurez-vous que les niveaux logiques des signaux du STM32 sont compatibles avec les entrées du driver CL42T. Si nécessaire, utilisez des adaptateurs de niveau logique.
+
+Micro-pas : Le driver CL42T permet de configurer différents modes de micro-pas via des commutateurs DIP. Choisissez le mode adapté à votre application.
+
+Protection : Le driver dispose de protections contre les surtensions, les surintensités et les erreurs de positionnement. Consultez le manuel pour plus de détails sur les indicateurs LED et les codes d'erreur.

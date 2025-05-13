@@ -1,0 +1,35 @@
+Ce driver est utilisé pour communiquer avec des variateurs CL42T
+les variateurs CL42T sont des variateurs pour motor pas à pas muni d'encoder 
+les connexions avec le µC sont deux entrées digitals l'une pour la direction 
+et l'autre pour le status ON/OFF. Ils possède également 1 entrée PWM Pulse, c'est-à-dire qu'on 
+set va set la PWM à une fréquence donnée et un dutyCycle de 50% (config voir datasheet) et 
+c'est le nombre de pulse qui va déterminer le nombre de pas effectué par le motor. 
+Et enfin un signal d'entrée pour le diagnostic default fréquentiel mode Count pour compter les front montant 
+ou en Evnt et c'est le Driver qui fera la logique. A voir
+Le variateur grâce à un encoder du motor va effectué la rototation en boucle fermé.
+
+L'utilisateur devra alors fournir 2 signaux digital, 1 signal PWM et un signal Frequentiel/Event.
+Le driver se chargera de set les Init de chacun de ses Signal en fonction des demandes du variateurs. 
+
+
+Pensez à implémenter la callback de PwmElapsed for pulse 
+et pender a envoyer la consigne des values dans la cyclic.
+il reste à implémenter MngSigError et d'autre trucs
+
+Pour la commande du variateur, on va dans un premier tant recevoir les valeurs de l'utilisateur.
+Au debut, comme tout est à 0 on set une commande à 0, 
+L'utilisateur rentre ses valeurs cycliquement ou ponctuellement pour des changement,
+et la cyclic d'après, enverra cette commande aux variaturs si l'état du motor le permet 
+SI l'utilisateur ne rentre pas de nouvelle commande, et que l'état du pulse est off, on renvoie les valeurs
+de enable, direction, et pulse à 0. Ce qui impose de reset le pulse à chaque fois qu'on envoit une commande à 0 
+
+Lorsqu'on set la commande aux variateurs, on regarde l'état du pulse, s'il est déjà en WAIT en set WARNING_BUSY 
+(ou ajouter un paralètre pour écraser la nouvelle valeur ?) 
+si il y à un pulse en cours on set l'état WAIT sinon on update l'état du pulse à ON, une fois que les pulses sont effectués, 
+on est sensé être appelé par FMKCPU, dans la callback, on regarde l'état du PULSE, s'il est à WAIT on set la commande depuis la callback on 
+et on update l'état à ON.
+
+Si un changement de sens est détecté on doit attendre x ms avant d'envoyer une nouvelle commande pour préserver la méca 
+
+inhibition imposé lorsque deux actions de pulses en sens inverse sont demandées et dans un intervalle temps inférieur à 'paramètre'
+si c'est le cas i.e qu'une nouvelle commande en sens inverse arrive avant que 'paramètre' ms soit passé, alors on inhib durant (inhibtime - stop_pulse)
