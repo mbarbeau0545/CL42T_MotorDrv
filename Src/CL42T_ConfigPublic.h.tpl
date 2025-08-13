@@ -37,10 +37,11 @@
     typedef enum 
     {
         CL42T_SIGTYPE_PULSE = 0x00,
-        CL42T_SIGTYPE_SPEED,
         CL42T_SIGTYPE_DIR,
         CL42T_SIGTYPE_STATE,
         CL42T_SIGTYPE_DIAG,
+        CL42T_SIGTYPE_ENDSTOP_CW,
+        CL42T_SIGTYPE_ENDSTOP_CCW,
 
         CL42T_SIGTYPE_NB
     } t_eCL42T_MotorSignalType;
@@ -49,31 +50,30 @@
     /* CAUTION : Automatic generated code section for Enum: End */
    
     //-----------------------------STRUCT TYPES---------------------------//
+    /// @brief Signal configuration
+    typedef struct
+    {
+        t_eFMKIO_InEvntSig EndStopSignal_e;
+        t_eFMKIO_PullMode PullMode_e;
+        t_eFMKIO_SigTrigCptr triggerEvnt_e;
+    } t_sCL42T_EndStopignalCfg;
+
+    /// @brief Pulse Signal Configuration
     typedef struct 
     {
         t_eFMKIO_OutPwmSig PulseSignal_e;
-        t_eFMKIO_PullMode PullMode_e;
-        t_uint32 f_PulseInitFreq_f32;
+        t_sFMKIO_PwmControlPrm pwmCtrlPrm_s;
+        t_sFMKIO_PwmWaveformCfg pwmWaveForm_s;
     } t_sCL42T_PwmSignalCfg;
 
     typedef struct 
     {
-        t_eFMKIO_OutDigSig  DigitalSignal_e;
-        t_eFMKIO_PullMode   PullMode_e;
-    } t_sCL42T_DigitalSignalCfg;
-
-    typedef struct 
-    {
-        t_eFMKIO_InFreqSig  FreqSignal_e;
-        t_eFMKIO_PullMode   PullMode_e;
-    } t_sCL42T_FreqSignalCfg;
-
-    typedef struct 
-    {
-        t_sCL42T_PwmSignalCfg       PulseSigCfg_s;
-        t_sCL42T_DigitalSignalCfg   StateSigCfg;
-        t_sCL42T_DigitalSignalCfg   DirSigCfg_s;
-        t_sCL42T_FreqSignalCfg      DiagSigCfg_s;
+        t_sCL42T_PwmSignalCfg       PulseSigCfg_s;      //---- Pulse Signal Configuration ----//
+        t_eFMKIO_OutDigSig          DirSignal_e;        //---- Direction Signal Configuration ----//
+        t_eFMKIO_OutDigSig          StateSignal_e;      //---- State of the motor Signal Configuration ----//
+        t_eFMKIO_InFreqSig          DiagSignal_e;       //---- Diagnotic Frequency Signal Configuration ----//
+        t_sCL42T_EndStopignalCfg    EndStopSigCW_s;     //---- End Stop Cfg for ClockWise, put FMKIO_INPUT_FREQ_NB if not used ----//
+        t_sCL42T_EndStopignalCfg    EndStopSigCCW_s;    //---- End Stop Cfg for Counter Clockwise, put FMKIO_INPUT_FREQ_NB if not used ----//
 
     } t_sCL42T_MotorSigCfg;
 

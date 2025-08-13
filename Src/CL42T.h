@@ -27,6 +27,7 @@
     // ********************************************************************
 
     //-----------------------------ENUM TYPES-----------------------------//
+    ///@brief Enumeration for the Direction CW and CCW 
     typedef enum 
     {
         CL42T_MOTOR_DIRECTION_CW,
@@ -35,6 +36,7 @@
         CL42T_MOTOR_DIRECTION_NB
     }t_eCL42T_MotorDirection;
 
+    /// @brief Enumeration for the motor State
     typedef enum 
     {
         CL42T_MOTOR_STATE_ON,
@@ -43,14 +45,8 @@
         CL42T_MOTOR_STATE_NB
     }t_eCL42T_MotorState;
 
-    typedef enum 
-    {
-        CL42T_MOTOR_PULSE_OFF = 0x00,
-        CL42T_MOTOR_PULSE_ON,
 
-        CL42T_MOTOR_PULSE_NB
-    } t_eCL42T_MotorPulseState;
-
+    /// @brief Enumeration of the Motor Diagnostic Information
     typedef enum 
     {
         CL42T_DIAGNOSTIC_OK,
@@ -72,11 +68,13 @@
 
     typedef enum 
     {
-        CL42T_PULSE_CHANGE_DIR_OPE_CANCEL = 0x00,
-        CL42T_PULSE_CHANGE_DIR_OPE_ADD,
-
-        CL42T_PULSE_CHANGE_DIR_OPE_NB
-    } t_eCL42T_PulseChgDirOpe;
+        CL42T_BITFIELD_MOTOR_ON = 0x00,      //---- Bit to 1 -> motor is moving, bit to 0 -> motor is off ----//
+        CL42T_BITFILED_MOTOR_DIR,            //---- Ignore bit if motor is OFF, Bit to 1 -> CL42T_MOTOR_DIRECTION_CCW, bit to 0 -> CL42T_MOTOR_DIRECTION_CCW ----//
+        CL42T_BITFIELD_IN_DEAD_TIME,         //---- Bit to 1 -> motor is in deadtime state, bit to 0 motor is not to deadtime state ----//
+        CL42T_BITFIELD_TRIG_ENDSTOP_CW,      //---- Bit to 1 -> motor has reach the endStop ClockWise limit, bit to 0 -> not reach ----//
+        CL42T_BITFIELD_TRIG_ENDSTOP_CCW,     //---- Bit to 1 -> motor has reach the endStop1 Counter ClockWise, bit to 0 -> not reach ----//
+        CL42T_BITFIELD_NB
+    } t_eCL42T_BitfieldInfo;
     /* CAUTION : Automatic generated code section for Enum: Start */
 
     /* CAUTION : Automatic generated code section for Enum: End */
@@ -99,23 +97,27 @@
     *
     */
     typedef void (t_cbCL42T_Diagnostic)(t_eCL42T_MotorId f_MotorID_e, t_eCL42T_DiagError f_DefeultInfo_e);
+        /**
+     *
+     *	@brief
+    *	@note   
+    *
+    *
+    *	@param[in] 
+    *	@param[out]
+    *	 
+    *
+    *
+    */
+    typedef void (t_cbCL42T_PulseDropped)(t_eCL42T_MotorId f_MotorID_e, t_uint16 f_pulseDropped_u16, t_eCL42T_MotorDirection f_direction_e);
 
     typedef struct 
     {
         t_sint32 nbPulses_s32;
         t_uint32 frequency_u32;
-        t_eCL42T_MotorState state_e;
-        t_bool stopPulse_b;
 
     } t_sCL42T_SetMotorValue;
 
-    typedef struct 
-    {
-        t_eCL42T_MotorPulseState pulseState_e;
-        t_uint32 frequency_u32;
-        t_eCL42T_MotorDirection dir_e;
-        t_eCL42T_MotorState state_e;
-    } t_sCL42T_GetMotorValue;
     // ********************************************************************
     // *                      Prototypes
     // ********************************************************************
@@ -154,12 +156,11 @@
 
     /**
      *
-     *	@brief
-    *	@note   
+    *	@brief Function to know the module state 
+    *	@param[in]  f_State_pe : store the value, value from @ref t_eCyclicModState
     *
-    *
-    *	@param[in] 
-    *	@param[out]
+    *   @retval RC_OK                             @ref RC_OK
+    *   @retval RC_ERROR_PTR_NULL                 @ref RC_ERROR_PTR_NUL
     *	 
     *
     *
@@ -168,13 +169,11 @@
 
     /**
      *
-     *	@brief
-    *	@note   
+    *	@brief Function to set the module state 
+    *	@param[in]  f_State_e : the value, value from @ref t_eCyclicModState
     *
-    *
-    *	@param[in] 
-    *	@param[out]
-    *	 
+    *   @retval RC_OK                             @ref RC_OK
+    *   @retval RC_ERROR_PTR_NULL                 @ref RC_ERROR_PTR_NUL
     *
     *
     */
@@ -182,52 +181,92 @@
 
     /**
     *
-    *	@brief
-    *	@note   
+    *	@brief      Add A motor configuration.
+    *	@note       The configuration is quite exhaustive, although 
+    *               the encoder was not in it on purpose. Encoder has to be 
+    *               deals in logical/applcication level not in this driver.
+    *  @warning     This library only works with Advanced and High Resolution Timer
+    *               cause the pulses are send by package to unload the CPU using 
+    *               RCR register, please see FMKTIM module SetPwmLineValue for more info.
     *
     *
-    *	@param[in] 
-    *	@param[out]
+    *	@param[in] f_motorId_e  : the motor Id
+    *	@param[in] f_MotorCfg_s : the motor configuration
+    *	@param[in] f_diagEvnt_pcb : Function to be called whenever a error happen
+    *	@param[in] f_pulseDropped_pcb : Function to be called whenever a pulse are dropped
     *	 
-    *
-    *
+    *   @return @ref t_eReturncode
     */
     t_eReturnCode CL42T_AddMotorConfiguration(  t_eCL42T_MotorId f_motorId_e,
-                                                t_sCL42T_MotorSigCfg f_MotorCfg_s,
-                                                t_eCL42T_PulseChgDirOpe f_PulseOpe_e,
-                                                t_cbCL42T_Diagnostic *f_diagEvnt_pcb);
+                                            t_sCL42T_MotorSigCfg f_MotorCfg_s,
+                                            t_cbCL42T_Diagnostic *f_diagEvnt_pcb,
+                                            t_cbCL42T_PulseDropped * f_pulseDropped_pcb);
 
     /**
-     *
-     *	@brief
-    *	@note   
     *
+    *	@brief      Set Motor Value.
+    *	@note       Once the motor is initialized you can now set pulses and frequency.
+    *               The motor actuators are actually ENABLE / DIRECTION / PULSE (Freq, Dc)
+    *               But in order to abastract you give to the library signed pulse 
+    *                   - nbPulses_s32 > 0 means will turn in CW 
+    *                   - nbPulses_s32 < 0 means motor will turn in CCW
+    *                   - nbPulses_s23 = 0 the motor is stopped
+    *               This API will not send right away the pulse to the motor. It will depends
+    *               on the state of the motor :
+    *               - if the motor is OFF (not turning), the command is send from the next cyclic.
+    *               - if the motor is ON, the pulse will not be sent directly, it will be when the last cmd will finish
+    *                   from the pulseFinishCallback, so from this API you command will be store in queue 
+    *                   that can contains CL42T_CMD_QUEUE_SIZE, this number can be increrase/decrease as you wish
+    *               It means you can accumulate command and the module will send it to the motor
+    *               in a asynchronous way, if something went wrong during this process you will be call 
+    *               with the f_diagEvnt_pcb callback
+    *               If the motor status not allowed command the bit CL42T_MOTOR_STS_CMD_ENABLE in f_MotorStsInfo_pu16 will be set to 0.
+    * @note         A deadtime is applied whenever a change of direction is detected by software 
+    *               which means every time a change of dir happened, the motor is stop CL42T_DEAD_TIME_TRANSITION millisecond
+    *               before allow another command, this behaviour can be disable at the initialization
+    * @warning      One command of pulse should not exceed 0xFFFF.
+    *  
     *
-    *	@param[in] 
-    *	@param[out]
+    *	@param[in] f_motorId_e  : the motor Id
+    *	@param[in] f_MotorValue_s : Frequency and Pulses to send
     *	 
-    *
-    *
+    *   @return RC_WARNING_BUSY      Motor does not accept pulse at the moment
+    *   @return RC_ERROR_INSTANCE_NOT_INITIALIZED      Motor not initialized
     */
     t_eReturnCode CL42T_SetMotorSigValue(   t_eCL42T_MotorId f_motorId_e,
                                             t_sCL42T_SetMotorValue f_MotorValue_s);
     
     /**
-     *
-     *	@brief
+    *
+    *	@brief      Get motor information 
     *	@note   
     *
     *
-    *	@param[in] 
-    *	@param[out]
+    *	@param[in]  f_motorId_e : the motor concern
+    *	@param[in]  f_MotorStsInfo_pu16 : Container for the motor information
+    *                                       which is a bit field from @ref t_eCL42T_BitfieldInfo
     *	 
     *
     *
     */
-    t_eReturnCode CL42T_GetMotorSigValue(   t_eCL42T_MotorId f_motorId_e,
-                                            t_sCL42T_GetMotorValue * f_MotorValue_ps);
+    t_eReturnCode CL42T_GetMotorInfo(   t_eCL42T_MotorId f_motorId_e,
+                                        t_uint16 * f_MotorStsInfo_pu16);
 
-                                                                                                                                           
+    /**
+    *
+    *	@brief      Set the motor state.
+    *	@note       At the initialization, the motor will always set to ON (Enable)
+    *               So no need to use this API to set that, but to Disable It, and the Enable 
+    *               it you can call this API
+    *
+    *
+    *	@param[in]  f_motorId_e : the motor concern
+    *	@param[in]  f_state_e : New State of the motor
+    *	 
+    *
+    *
+    */
+    t_eReturnCode CL42T_SetMotorState(t_eCL42T_MotorId f_motorId_e, t_eCL42T_MotorState f_state_e);                                                                                                                                    
     //********************************************************************************
     //                      Public functions - Prototyupes
     //********************************************************************************
