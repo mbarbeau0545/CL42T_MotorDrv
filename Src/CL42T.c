@@ -15,6 +15,7 @@
 #include "./CL42T.h"
 #include "FMK_HAL/FMK_CPU/Src/FMK_CPU.h"
 #include "APP_CTRL/APP_SYS/Src/APP_SYS.h"
+#include "FMK_HAL/FMK_SRL/Src/FMK_SRL.h"
 #include "Library/QUEUE/Src/LIBQueue.h"
 // ********************************************************************
 // *                      Defines
@@ -736,6 +737,10 @@ static t_eReturnCode s_CL42T_OperationalState(void)
             if(Ret_e >= RC_OK)
             {
                 Ret_e = s_CL42T_MotorCommandMngmt(motorInfo_ps);
+                if(Ret_e == RC_OK)
+                {
+                    FMKSRL_LOG("Send pulse from Cyclic\r\n");
+                }
             }
         }
     }
@@ -817,8 +822,36 @@ static t_eReturnCode s_CL42T_PerformDiagnostic( t_eCL42T_MotorId f_idMotor_e,
             Ret_e = s_CL42T_GetDiagErrorFromCnt(f_cntDiag_u16, &motorInfo_ps->Health_e);
         }
 
+        //---- check if the motor is still ON ----//
+        if(GETBIT(motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ON == BIT_IS_SET_16B))
+        {
+            //---- try to shut down by cutting dutycycle ----//
+            Ret_e = FMKIO_Set_OutPwmSigDutyCycle(   motorInfo_ps->signalId_au8[CL42T_SIGTYPE_PULSE],
+                                                    (t_uint16)0);
+            if(Ret_e == RC_OK)
+            {
+                RESETBIT_16B(motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ON);
+                //---- if the problem was infinite pulse, no more problem ----//
+                if(motorInfo_ps->Health_e == CL42T_DIAGNOSTIC_PULSE_INFINITE)
+                {
+                    motorInfo_ps->Health_e = CL42T_DIAGNOSTIC_OK;
+                    motorInfo_ps->flagErrorDetected_b = (t_bool)FALSE;
+                }
+            }
+        }
+        else
+        {
+            //--- mtoor off so dizagnostic also off
+            if(motorInfo_ps->Health_e == CL42T_DIAGNOSTIC_PULSE_INFINITE)
+            {
+                motorInfo_ps->Health_e = CL42T_DIAGNOSTIC_OK;
+                motorInfo_ps->flagErrorDetected_b = (t_bool)FALSE;
+            }
+        }
         //---- If it's not countor error it is signal error or infinite pulse, already set in health variable ----//
+        
         if((Ret_e == RC_OK)
+        && (motorInfo_ps->Health_e != CL42T_DIAGNOSTIC_OK)
         && (motorInfo_ps->diagCallback_pcb != NULL_FUNCTION))
         {
             motorInfo_ps->diagCallback_pcb(f_idMotor_e, motorInfo_ps->Health_e);
@@ -833,6 +866,7 @@ static t_eReturnCode s_CL42T_PerformDiagnostic( t_eCL42T_MotorId f_idMotor_e,
  *********************************/
 static void s_CL42T_PulseEventMngmt(t_eFMKIO_OutPwmSig f_signal_e)
 {
+    t_eReturnCode Ret_e;
     t_uint8 idxMotor_u8 = (t_uint8)0;
     t_sCL42T_MotorInfo * motorInfo_ps = NULL;
 
@@ -850,7 +884,12 @@ static void s_CL42T_PulseEventMngmt(t_eFMKIO_OutPwmSig f_signal_e)
         
         RESETBIT_16B(motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ON);
         FMKCPU_GetTick(&motorInfo_ps->InhibTime_u32);
-        (void)s_CL42T_MotorCommandMngmt(motorInfo_ps);
+        // Ret_e = s_CL42T_MotorCommandMngmt(motorInfo_ps);
+        // if(Ret_e == RC_OK)
+        // {
+        //     FMKSRL_LOG("Send pulse from Callback\r\n");
+        // }
+
 
     }
     else 
@@ -972,6 +1011,10 @@ static void s_CL42T_SigErrorMngmt(t_eFMKIO_SigType f_type_e,
                     {
                         if(g_MotorInfo_as->signalId_au8[idxSignal_u8] == f_signalId_u8)
                         {
+                            FMKSRL_LOG("Error on Pwm %d, debug1 -> %d, debug2 ->%d",
+                                        idxSignal_u8,
+                                        f_debugInfo1_u16,
+                                        f_debugInfo2_u16);
                             g_MotorInfo_as[idxMotor_u8].Health_e = CL42T_DIAGNOSTIC_SIGNAL_PULSE;
                             break;
                         }
@@ -987,6 +1030,10 @@ static void s_CL42T_SigErrorMngmt(t_eFMKIO_SigType f_type_e,
                     {
                         if(g_MotorInfo_as->signalId_au8[idxSignal_u8] == f_signalId_u8)
                         {
+                            FMKSRL_LOG("Error on Freq %d, debug1 -> %d, debug2 ->%d",
+                                        idxSignal_u8,
+                                        f_debugInfo1_u16,
+                                        f_debugInfo2_u16);
                             g_MotorInfo_as[idxMotor_u8].Health_e = CL42T_DIAGNOSTIC_SIGNAL_FREQ;
                             break;
                         }
@@ -1236,6 +1283,7 @@ static t_eReturnCode s_CL42T_AddEndStopSignal(  t_sCL42T_MotorInfo * f_motorInfo
  *********************************/
 static void s_CL42T_EvntEndStopCallback(t_eFMKIO_InEvntSig f_evntSig_e)
 {
+    t_eReturnCode Ret_e;
     t_uint8 idxMotor_u8;
     t_sCL42T_MotorInfo * motorInfo_ps;
     t_bool motorFound_b = (t_bool)FALSE;
@@ -1264,10 +1312,21 @@ static void s_CL42T_EvntEndStopCallback(t_eFMKIO_InEvntSig f_evntSig_e)
     }
     if(motorFound_b == (t_bool)TRUE)
     {
-        (void)FMKIO_Set_OutPwmSigPulses(motorInfo_ps->signalId_au8[CL42T_SIGTYPE_PULSE],
-                                        CL42T_NOMINATIVE_FREQUENCY,
-                                        CL42T_NOMINATIVE_DUTYCYCLE,
-                                        (t_uint16)0);
+        Ret_e = FMKIO_Set_OutPwmSigPulses(  motorInfo_ps->signalId_au8[CL42T_SIGTYPE_PULSE],
+                                            CL42T_NOMINATIVE_FREQUENCY,
+                                            CL42T_NOMINATIVE_DUTYCYCLE,
+                                            (t_uint16)0);
+        if(Ret_e == RC_OK)
+        {
+            RESETBIT_16B(motorInfo_ps->maskInfo_u16,CL42T_BITFIELD_MOTOR_ON);
+        }
+        else
+        {
+            motorInfo_ps->Health_e = CL42T_DIAGNOSTIC_PULSE_INFINITE;
+            motorInfo_ps->flagErrorDetected_b = (t_bool)TRUE;
+        }
+
+        
 
         
     }
@@ -1410,7 +1469,7 @@ static t_eReturnCode s_CL42T_MotorCommandMngmt(t_sCL42T_MotorInfo * f_MotorInfo_
         //--- else the motor is still turning so we do nothing ----//
         else 
         {
-            Ret_e = RC_OK;
+            Ret_e = RC_WARNING_NO_OPERATION;
         }
     }    
 
