@@ -192,6 +192,7 @@
     *
     *	@param[in] f_motorId_e  : the motor Id
     *	@param[in] f_MotorCfg_s : the motor configuration
+    *	@param[in] f_enableDeadtime_b : Enable/Disable the deadtime whenever a change of direction is detected
     *	@param[in] f_diagEvnt_pcb : Function to be called whenever a error happen
     *	@param[in] f_pulseDropped_pcb : Function to be called whenever a pulse are dropped
     *	 
@@ -199,6 +200,7 @@
     */
     t_eReturnCode CL42T_AddMotorConfiguration(  t_eCL42T_MotorId f_motorId_e,
                                             t_sCL42T_MotorSigCfg f_MotorCfg_s,
+                                            t_bool f_enableDeadtime_b,
                                             t_cbCL42T_Diagnostic *f_diagEvnt_pcb,
                                             t_cbCL42T_PulseDropped * f_pulseDropped_pcb);
 
@@ -245,9 +247,6 @@
     *	@param[in]  f_motorId_e : the motor concern
     *	@param[in]  f_MotorStsInfo_pu16 : Container for the motor information
     *                                       which is a bit field from @ref t_eCL42T_BitfieldInfo
-    *	 
-    *
-    *
     */
     t_eReturnCode CL42T_GetMotorInfo(   t_eCL42T_MotorId f_motorId_e,
                                         t_uint16 * f_MotorStsInfo_pu16);
@@ -262,11 +261,11 @@
     *
     *	@param[in]  f_motorId_e : the motor concern
     *	@param[in]  f_state_e : New State of the motor
-    *	 
-    *
-    *
     */
-    t_eReturnCode CL42T_SetMotorState(t_eCL42T_MotorId f_motorId_e, t_eCL42T_MotorState f_state_e);                                                                                                                                    
+    t_eReturnCode CL42T_SetMotorState(t_eCL42T_MotorId f_motorId_e, t_eCL42T_MotorState f_state_e);        
+    
+    
+    void CL42T_Test_SetPerturb(t_eCL42T_MotorId f_motor_e, t_bool isEndStopCW);
     //********************************************************************************
     //                      Public functions - Prototyupes
     //********************************************************************************

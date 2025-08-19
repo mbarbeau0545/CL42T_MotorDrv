@@ -56,6 +56,7 @@
         t_eFMKIO_InEvntSig EndStopSignal_e;
         t_eFMKIO_PullMode PullMode_e;
         t_eFMKIO_SigTrigCptr triggerEvnt_e;
+        t_uint16 debuncValue_u16;               //---- ignoring interrrept for anti-rebond ----//
     } t_sCL42T_EndStopignalCfg;
 
     /// @brief Pulse Signal Configuration
