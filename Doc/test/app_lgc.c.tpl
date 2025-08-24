@@ -71,7 +71,7 @@ static t_sAPPLGC_ServiceInfo g_srvFuncInfo_as[APPLGC_SRV_NB];
 /**
 * @brief Container for Sensors Values
 */
-//static t_float32 g_snsValues_af32[APPSNS_SENSOR_NB];
+//static t_float32 g_snsValues_af32[APPSNS_SNS_NB];
 static t_float32 g_snsValues_af32[2];
 
 /**
@@ -173,7 +173,7 @@ static void s_APPLGC_CanCallback_2(   t_eFMKFDCAN_NodeList f_Node_e,
                                     t_sFMKFDCAN_RxItemEvent f_RxItem_s, 
                                     t_eFMKFDCAN_NodeStatus f_NodeStatus_e);
 
-static void s_APPLGC_MotorDiag(t_eCL42T_MotorId f_MotorID_e, t_eCL42T_DiagError f_DefeultInfo_e);
+static void s_APPLGC_MotorDiag(t_eCL42T_MotorId f_MotorID_e, t_eCL42T_DiagError f_defaultInfo_e);
 static void s_APPLGC_PulseDropped(t_eCL42T_MotorId f_MotorID_e, 
                                     t_uint16 f_pulseDropped_u16, 
                                     t_eCL42T_MotorDirection f_direction_e);
@@ -351,11 +351,11 @@ t_eReturnCode APPLGC_GetServiceHealth(t_eAPPLGC_SrvList f_service_e, t_eAPPLGC_S
 /*********************************
  * APPLGC_GetSnsValue
  *********************************/
-t_eReturnCode APPLGC_GetSnsValue(t_eAPPSNS_Sensors f_sensors_e, t_sint32 * f_snsValue_ps32)
+t_eReturnCode APPLGC_GetSnsValue(t_eAPPSNS_SnsInterface f_sensors_e, t_sint32 * f_snsValue_ps32)
 {
     t_eReturnCode Ret_e = RC_OK;
 
-    if(f_sensors_e >= APPSNS_SENSOR_NB)
+    if(f_sensors_e >= APPSNS_SNS_NB)
     {
         Ret_e = RC_ERROR_PARAM_INVALID;
         ASSERT((t_uint16)f_sensors_e);
@@ -638,14 +638,14 @@ static t_eReturnCode s_APPLGC_GetSnsValues(void)
     t_sAPPSNS_SnsValueInfo snsInfo_s;
     t_uint8 idxSns_u8 = (t_uint8)0;
 
-    for(idxSns_u8 = (t_uint8)0 ; (idxSns_u8 < APPSNS_SENSOR_NB) && (Ret_e == RC_OK) ; idxSns_u8++)
+    for(idxSns_u8 = (t_uint8)0 ; (idxSns_u8 < APPSNS_SNS_NB) && (Ret_e == RC_OK) ; idxSns_u8++)
     {
         //----- Reset Container values -----//
         snsInfo_s.isValueOK_b = (t_bool)False;
         snsInfo_s.rawValue_f32 = (t_float32)0.0;
         snsInfo_s.SnsValue_f32 = (t_float32)0.0;
 
-        Ret_e = APPSNS_Get_SnsValue((t_eAPPSNS_Sensors)idxSns_u8, &snsInfo_s);
+        Ret_e = APPSNS_Get_SnsValue((t_eAPPSNS_SnsInterface)idxSns_u8, &snsInfo_s);
 
         if((Ret_e == RC_OK)
         && (snsInfo_s.isValueOK_b == (t_bool)true))
@@ -666,7 +666,7 @@ static t_eReturnCode s_APPLGC_SetActValues(void)
     t_eReturnCode Ret_e = RC_OK;
     t_uint8 idxSrv_u8 = (t_uint8)0;
     t_uint8 idxAct_u8 = (t_uint8)0;
-    t_eAPPACT_Actuators actuatorLabel_e;
+    t_eAPPACT_ActInterface actuatorLabel_e;
 
     //----- Loop on every Service -----//
     for(idxSrv_u8 = (t_uint8)0 ; (idxSrv_u8 < APPLGC_SRV_NB) && (Ret_e == RC_OK) ; idxSrv_u8++)
@@ -771,9 +771,9 @@ static void s_APPLGC_CanCallback_2(   t_eFMKFDCAN_NodeList f_Node_e,
     return;
 }
 
-static void s_APPLGC_MotorDiag(t_eCL42T_MotorId f_MotorID_e, t_eCL42T_DiagError f_DefeultInfo_e)
+static void s_APPLGC_MotorDiag(t_eCL42T_MotorId f_MotorID_e, t_eCL42T_DiagError f_defaultInfo_e)
 {
-    FMKSRL_LOG("Motor Id %d, Error %d\r\n", f_MotorID_e, f_DefeultInfo_e);
+    FMKSRL_LOG("Motor Id %d, Error %d\r\n", f_MotorID_e, f_defaultInfo_e);
 }
 
 static void s_APPLGC_PulseDropped(t_eCL42T_MotorId f_MotorID_e, 

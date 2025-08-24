@@ -39,8 +39,8 @@
     /// @brief Enumeration for the motor State
     typedef enum 
     {
-        CL42T_MOTOR_STATE_ON,
         CL42T_MOTOR_STATE_OFF,
+        CL42T_MOTOR_STATE_ON,
 
         CL42T_MOTOR_STATE_NB
     }t_eCL42T_MotorState;
@@ -96,7 +96,7 @@
     *
     *
     */
-    typedef void (t_cbCL42T_Diagnostic)(t_eCL42T_MotorId f_MotorID_e, t_eCL42T_DiagError f_DefeultInfo_e);
+    typedef void (t_cbCL42T_Diagnostic)(t_eCL42T_MotorId f_MotorID_e, t_eCL42T_DiagError f_defaultInfo_e);
         /**
      *
      *	@brief
