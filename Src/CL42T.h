@@ -30,7 +30,7 @@
     ///@brief Enumeration for the Direction CW and CCW 
     typedef enum 
     {
-        CL42T_MOTOR_DIRECTION_CW,
+        CL42T_MOTOR_DIRECTION_CW = 0,
         CL42T_MOTOR_DIRECTION_CCW,
         
         CL42T_MOTOR_DIRECTION_NB
@@ -39,7 +39,7 @@
     /// @brief Enumeration for the motor State
     typedef enum 
     {
-        CL42T_MOTOR_STATE_OFF,
+        CL42T_MOTOR_STATE_OFF = 0,
         CL42T_MOTOR_STATE_ON,
 
         CL42T_MOTOR_STATE_NB
@@ -49,7 +49,7 @@
     /// @brief Enumeration of the Motor Diagnostic Information
     typedef enum 
     {
-        CL42T_DIAGNOSTIC_OK,
+        CL42T_DIAGNOSTIC_OK = 0,
         CL42T_DIAGNOSTIC_PRESENTS,
         CL42T_DIAGNOSTIC_OVER_CURRENT,
         CL42T_DIAGNOSTIC_OVER_VOLTAGE,
@@ -68,7 +68,7 @@
 
     typedef enum 
     {
-        CL42T_BITFIELD_MOTOR_ON = 0x00,      //---- Bit to 1 -> motor is moving, bit to 0 -> motor is off ----//
+        CL42T_BITFIELD_MOTOR_ON = 0,         //---- Bit to 1 -> motor is moving, bit to 0 -> motor is off ----//
         CL42T_BITFILED_MOTOR_DIR,            //---- Ignore bit if motor is OFF, Bit to 1 -> CL42T_MOTOR_DIRECTION_CCW, bit to 0 -> CL42T_MOTOR_DIRECTION_CCW ----//
         CL42T_BITFIELD_IN_DEAD_TIME,         //---- Bit to 1 -> motor is in deadtime state, bit to 0 motor is not to deadtime state ----//
         CL42T_BITFIELD_TRIG_ENDSTOP_CW,      //---- Bit to 1 -> motor has reach the endStop ClockWise limit, bit to 0 -> not reach ----//
@@ -262,7 +262,9 @@
     *	@param[in]  f_motorId_e : the motor concern
     *	@param[in]  f_state_e : New State of the motor
     */
-    t_eReturnCode CL42T_SetMotorState(t_eCL42T_MotorId f_motorId_e, t_eCL42T_MotorState f_state_e);        
+    t_eReturnCode CL42T_SetMotorState(  t_eCL42T_MotorId f_motorId_e, 
+                                        t_eCL42T_MotorState f_state_e,
+                                        t_bool f_isEmergencyStop_b);        
     
     
     void CL42T_Test_SetPerturb(t_eCL42T_MotorId f_motor_e, t_bool isEndStopCW);

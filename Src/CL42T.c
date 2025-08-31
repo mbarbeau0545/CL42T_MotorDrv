@@ -672,7 +672,9 @@ t_eReturnCode CL42T_GetMotorInfo(   t_eCL42T_MotorId f_motorId_e,
 /*********************************
  * CL42T_SetMotorState
  *********************************/
-t_eReturnCode CL42T_SetMotorState(t_eCL42T_MotorId f_motorId_e, t_eCL42T_MotorState f_state_e)
+t_eReturnCode CL42T_SetMotorState(  t_eCL42T_MotorId f_motorId_e, 
+                                    t_eCL42T_MotorState f_state_e,
+                                    t_bool f_isEmergencyStop_b)
 {
     t_eReturnCode Ret_e;
     t_sCL42T_MotorInfo * motorInfo_ps;
@@ -691,22 +693,33 @@ t_eReturnCode CL42T_SetMotorState(t_eCL42T_MotorId f_motorId_e, t_eCL42T_MotorSt
     {
         motorInfo_ps = (t_sCL42T_MotorInfo *)(&g_MotorInfo_as[f_motorId_e]);
 
-        digState_e = (f_state_e == CL42T_MOTOR_STATE_ON)
-                    ? FMKIO_DIG_VALUE_LOW   // Enable
-                    : FMKIO_DIG_VALUE_HIGH; // Disable
-
-        Ret_e = FMKIO_Set_OutDigSigValue(   (t_eFMKIO_OutDigSig)motorInfo_ps->signalId_au8[CL42T_SIGTYPE_STATE],
-                                            digState_e);
-        if(Ret_e == RC_OK)
+        if(f_isEmergencyStop_b == TRUE)
         {
-            //---- update motor status ----//
-            RESETBIT_16B(motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ON);
-            //---- flush the queue and call user with dropp !!! @todo ----//
-            (void)LIBQUEUE_ClearAll(&motorInfo_ps->HwCmdFifo_s);
+            digState_e = (f_state_e == CL42T_MOTOR_STATE_ON)
+                        ? FMKIO_DIG_VALUE_LOW   // Enable
+                        : FMKIO_DIG_VALUE_HIGH; // Disable
+
+            Ret_e = FMKIO_Set_OutDigSigValue(   (t_eFMKIO_OutDigSig)motorInfo_ps->signalId_au8[CL42T_SIGTYPE_STATE],
+                                                digState_e);
             //---- datasheet says wait 200 ms before set direction or anything else 
             //      the timeout for deadtime is higher so we juste set the timeout 
             //      maybe  deal that in other way if deadtime < 200 ms 
-            SETBIT_16B(motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_IN_DEAD_TIME);            
+            SETBIT_16B(motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_IN_DEAD_TIME);
+            FMKCPU_GetTick(&motorInfo_ps->InhibTime_u32);
+        }
+        else 
+        {
+            Ret_e = FMKIO_Set_OutPwmSigPulses((t_eFMKIO_OutPwmSig)motorInfo_ps->signalId_au8[CL42T_SIGTYPE_PULSE],
+                                                CL42T_NOMINATIVE_FREQUENCY,
+                                                CL42T_NOMINATIVE_DUTYCYCLE,
+                                                (t_uint16)0);
+        }
+        if(Ret_e == RC_OK)
+        {            
+            RESETBIT_16B(motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ON);
+            //---- flush the queue and call user with dropp !!! @todo ----//
+            (void)LIBQUEUE_ClearAll(&motorInfo_ps->HwCmdFifo_s);
+                    
         }
     }
 
@@ -740,7 +753,7 @@ static t_eReturnCode s_CL42T_ErrorState(void)
     Ret_e = RC_OK;
     for(idxMotor_u8 = (t_uint8)0 ; (idxMotor_u8 < CL42T_MOTOR_NB) && (Ret_e == RC_OK) ; idxMotor_u8++)
     {
-        Ret_e = CL42T_SetMotorState((t_eCL42T_MotorId)idxMotor_u8, CL42T_MOTOR_STATE_OFF);
+        Ret_e = CL42T_SetMotorState((t_eCL42T_MotorId)idxMotor_u8, CL42T_MOTOR_STATE_OFF, TRUE);
     }   
 
     
@@ -1262,6 +1275,7 @@ static t_eReturnCode s_CL42T_AddStateSignal(t_sCL42T_MotorInfo * f_motorInfo_ps,
 
     return Ret_e;
 }
+
 /*********************************
  * s_CL42T_AddDiagSignal
  *********************************/

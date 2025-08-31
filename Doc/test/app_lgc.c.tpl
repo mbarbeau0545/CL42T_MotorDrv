@@ -791,17 +791,11 @@ static void s_APPLGC_PulseFinished(t_eFMKIO_OutPwmSig f_pwmSig_e)
         g_resetSrvState_b = TRUE;
     }
 }
+
 static void s_APPLGC_FastTask(void)
 {
     t_eReturnCode Ret_e = RC_OK;
 
-    Ret_e = CL42T_Cyclic();
-
-
-    if(Ret_e < RC_OK)
-    {
-        FMKSRL_LOG("Cyclic CL42T went wrong %d", Ret_e);
-    }
 
     return;
 }
