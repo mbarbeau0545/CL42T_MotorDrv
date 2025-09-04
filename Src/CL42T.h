@@ -138,7 +138,7 @@
     *
     *
     */
-    t_eReturnCode CL42T_Init(   void);
+    t_eReturnCode CL42T_Init(void);
 
     /**
      *
@@ -152,7 +152,7 @@
     *
     *
     */
-    t_eReturnCode CL42T_Cyclic( void);
+    t_eReturnCode CL42T_Cyclic(void);
 
     /**
      *
@@ -250,6 +250,18 @@
     */
     t_eReturnCode CL42T_GetMotorInfo(   t_eCL42T_MotorId f_motorId_e,
                                         t_uint16 * f_MotorStsInfo_pu16);
+    /**
+    *
+    *	@brief      Get motor information 
+    *	@note   
+    *
+    *
+    *	@param[in]  f_motorId_e : the motor concern
+    *	@param[in]  f_MotorStsInfo_pu16 : Container for the motor information
+    *                                       which is a bit field from @ref t_eCL42T_BitfieldInfo
+    */
+    t_eReturnCode CL42T_GetMotorSpeed(  t_eCL42T_MotorId f_motorId_e,
+                                        t_float32 * f_motorSpeed_pf32);
 
     /**
     *

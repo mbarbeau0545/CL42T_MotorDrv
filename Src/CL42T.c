@@ -51,7 +51,6 @@ typedef struct __t_sCL42T_MotorInfo
     t_uint32 startPulseTime_u32;                                    //---- save when the pulse are launch ----//
     t_float32 estimPulseTime_f32;                                   //---- Estimate the duration of one the sequence pulse 
                                                                     //---- to readt if the callback end pulse is not called ----//
-    t_bool firstPulseCmd_b;                                         //---- To Avoid Changement in the First Command (and potentially inhibition) which is not logic 'cause it's the command ----//
     t_bool isConfigured_b;                                          //---- flag to know if the motor is configrued ---//
     volatile t_uint16 maskInfo_u16;                                 //---- motor status mask @ref t_eCL42T_BitMotorInfo
     t_bool flagErrorDetected_b;                                     //---- Flag to know if a error callback has been called ----//
@@ -420,7 +419,6 @@ t_eReturnCode CL42T_Init(void)
         g_MotorInfo_as[idxMotor_u8].enableDeadtime_b = (t_bool)FALSE;
         g_MotorInfo_as[idxMotor_u8].isConfigured_b = (t_bool)FALSE;
         g_MotorInfo_as[idxMotor_u8].maskInfo_u16 = (t_uint8)0;
-        g_MotorInfo_as[idxMotor_u8].firstPulseCmd_b = (t_bool)FALSE;
         g_MotorInfo_as[idxMotor_u8].pulseDroppCallback_pcb = NULL_FUNCTION;
         g_MotorInfo_as[idxMotor_u8].endStoptrigger_e = CL42T_MOTOR_DIRECTION_NB;
         g_MotorInfo_as[idxMotor_u8].selfId_e = (t_eCL42T_MotorId)idxMotor_u8;
@@ -669,6 +667,47 @@ t_eReturnCode CL42T_GetMotorInfo(   t_eCL42T_MotorId f_motorId_e,
 
     return Ret_e;
 }
+
+/*********************************
+ * CL42T_SetMotorState
+ *********************************/
+t_eReturnCode CL42T_GetMotorSpeed(  t_eCL42T_MotorId f_motorId_e,
+                                        t_float32 * f_motorSpeed_pf32)
+{
+    t_eReturnCode Ret_e;
+    if(f_motorId_e >= CL42T_MOTOR_NB) 
+    {
+        Ret_e = RC_ERROR_PARAM_INVALID;
+    }
+    else if(g_isModuleInit_b == (t_bool)FALSE)
+    {
+        Ret_e = RC_ERROR_MODULE_NOT_INITIALIZED;
+    }
+    else if((g_CL42T_ModState_e != STATE_CYCLIC_OPE)
+    ||     (g_MotorInfo_as[f_motorId_e].Health_e != CL42T_DIAGNOSTIC_OK))
+    {
+        Ret_e = RC_WARNING_BUSY;
+    }
+    else if(g_MotorInfo_as[f_motorId_e].isConfigured_b == (t_bool)False)
+    {
+        Ret_e = RC_ERROR_INSTANCE_NOT_INITIALIZED;
+    }
+    else 
+    {
+        if(GETBIT(g_MotorInfo_as[f_motorId_e].maskInfo_u16, CL42T_BITFIELD_MOTOR_ON) == BIT_IS_SET_16B)
+        {
+            Ret_e = FMKIO_Get_OutPwmSigFrequency(   g_MotorInfo_as[f_motorId_e].signalId_au8[CL42T_SIGTYPE_PULSE],
+                                                    f_motorSpeed_pf32);
+        }
+        else 
+        {
+            Ret_e = RC_OK;
+            *f_motorSpeed_pf32 = 0.0f;
+        }
+    }
+
+    return Ret_e;
+}
 /*********************************
  * CL42T_SetMotorState
  *********************************/
@@ -678,7 +717,6 @@ t_eReturnCode CL42T_SetMotorState(  t_eCL42T_MotorId f_motorId_e,
 {
     t_eReturnCode Ret_e;
     t_sCL42T_MotorInfo * motorInfo_ps;
-    t_eFMKIO_DigValue digState_e;
 
     if(f_motorId_e >= CL42T_MOTOR_NB)
     {
@@ -689,38 +727,48 @@ t_eReturnCode CL42T_SetMotorState(  t_eCL42T_MotorId f_motorId_e,
     {
         Ret_e = RC_ERROR_INSTANCE_NOT_INITIALIZED;
     }
+    else if((g_CL42T_ModState_e != STATE_CYCLIC_OPE)
+    &&      (f_isEmergencyStop_b == FALSE))
+    {
+        Ret_e = RC_WARNING_BUSY;
+    }
     else 
     {
         motorInfo_ps = (t_sCL42T_MotorInfo *)(&g_MotorInfo_as[f_motorId_e]);
 
-        if(f_isEmergencyStop_b == TRUE)
+        if(f_state_e == CL42T_MOTOR_STATE_OFF)
         {
-            digState_e = (f_state_e == CL42T_MOTOR_STATE_ON)
-                        ? FMKIO_DIG_VALUE_LOW   // Enable
-                        : FMKIO_DIG_VALUE_HIGH; // Disable
-
-            Ret_e = FMKIO_Set_OutDigSigValue(   (t_eFMKIO_OutDigSig)motorInfo_ps->signalId_au8[CL42T_SIGTYPE_STATE],
-                                                digState_e);
+            if(f_isEmergencyStop_b == TRUE) // completely OFF Motor
+            {
+                Ret_e = FMKIO_Set_OutDigSigValue(   (t_eFMKIO_OutDigSig)motorInfo_ps->signalId_au8[CL42T_SIGTYPE_STATE],
+                                                    FMKIO_DIG_VALUE_HIGH);
+            }
+            else // just stop pulse 
+            {
+                Ret_e = FMKIO_Set_OutPwmSigPulses((t_eFMKIO_OutPwmSig)motorInfo_ps->signalId_au8[CL42T_SIGTYPE_PULSE],
+                                                    CL42T_NOMINATIVE_FREQUENCY,
+                                                    CL42T_NOMINATIVE_DUTYCYCLE,
+                                                    (t_uint16)0);
+            }
+            if(Ret_e == RC_OK)
+            {            
+                RESETBIT_16B(motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ON);
+                //---- flush the queue and call user with dropp !!! @todo ----//
+                (void)LIBQUEUE_ClearAll(&motorInfo_ps->HwCmdFifo_s);
+                        
+            }
+        }
+        else // MOTOR ON
+        {
             //---- datasheet says wait 200 ms before set direction or anything else 
             //      the timeout for deadtime is higher so we juste set the timeout 
             //      maybe  deal that in other way if deadtime < 200 ms 
+            Ret_e = FMKIO_Set_OutDigSigValue(   (t_eFMKIO_OutDigSig)motorInfo_ps->signalId_au8[CL42T_SIGTYPE_STATE],
+                                                FMKIO_DIG_VALUE_LOW);
             SETBIT_16B(motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_IN_DEAD_TIME);
             FMKCPU_GetTick(&motorInfo_ps->InhibTime_u32);
         }
-        else 
-        {
-            Ret_e = FMKIO_Set_OutPwmSigPulses((t_eFMKIO_OutPwmSig)motorInfo_ps->signalId_au8[CL42T_SIGTYPE_PULSE],
-                                                CL42T_NOMINATIVE_FREQUENCY,
-                                                CL42T_NOMINATIVE_DUTYCYCLE,
-                                                (t_uint16)0);
-        }
-        if(Ret_e == RC_OK)
-        {            
-            RESETBIT_16B(motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ON);
-            //---- flush the queue and call user with dropp !!! @todo ----//
-            (void)LIBQUEUE_ClearAll(&motorInfo_ps->HwCmdFifo_s);
-                    
-        }
+        
     }
 
     return Ret_e;
@@ -792,10 +840,9 @@ static t_eReturnCode s_CL42T_OperationalState(void)
             {
                 Ret_e = s_CL42T_MotorCommandMngmt(motorInfo_ps);
             }
-            if(Ret_e >= RC_OK)
-            {
-                (void)s_CL42T_DebugUpdateSignal(motorInfo_ps);
-            }
+            
+            (void)s_CL42T_DebugUpdateSignal(motorInfo_ps);
+            
         }
     }
     if(Ret_e < RC_OK)
