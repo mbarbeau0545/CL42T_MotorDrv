@@ -213,7 +213,7 @@ t_eReturnCode APPLGC_Init(void)
     //---- Set Agent Init -----//
     for(idxAgent_u8 = (t_uint8)0 ; (idxAgent_u8 < APPLGC_AGENT_NB) && (Ret_e == RC_OK) ; idxAgent_u8++)
     {
-        Ret_e = c_AppLGc_AgentFunc_apf[idxAgent_u8].init_pcb();
+        Ret_e = c_AppLGc_AgentInfo_as[idxAgent_u8].init_pcb();
     }
 
     //Ret_e = APPSDM_AddCallbackEvnt(s_APPLGC_DiagnosticEvent);
@@ -618,7 +618,7 @@ static t_eReturnCode s_APPLGC_Operational(void)
     {   
         for(idxAgent_u8 = (t_uint8)0 ; (idxAgent_u8 < APPLGC_AGENT_NB) &&  (Ret_e >= RC_OK) ; idxAgent_u8++)
         {
-            Ret_e = c_AppLGc_AgentFunc_apf[idxAgent_u8].PeriodTask_pcb( (t_float32 *)g_snsValues_af32,
+            Ret_e = c_AppLGc_AgentInfo_as[idxAgent_u8].PeriodTask_pcb( (t_float32 *)g_snsValues_af32,
                                                                         (t_sAPPLGC_ServiceInfo *)g_srvFuncInfo_as);
         }
     }
