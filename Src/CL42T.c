@@ -72,10 +72,11 @@ typedef struct
 ///@brief Structure for queuing command 
 typedef struct 
 {
-    t_eCL42T_MotorDirection direction_e;
-    t_eCL42T_MotorState state_e;
-    t_uint16 nbPulses_u16;
-    t_uint16 frequency_u16;
+    t_eCL42T_MotorDirection direction_e;        //---- CL42T Driver Direction pin value ----//
+    t_eCL42T_MotorState state_e;                //---- CL42T Driver state pin value ----//
+    t_uint16 nbPulses_u16;                      //---- CL42T Driver nb pulses pin value ----//
+    t_float32 frequency_f32;                    //---- CL42T Driver Frequency pin value ----//
+    t_uint32 triggerTimer_u32;                  //---- Information to plan when to send pulses  ----//
 } t_sCL42T_HwSignalCmd;
 /* CAUTION : Automatic generated code section : Start */
 
@@ -1064,7 +1065,7 @@ static t_eReturnCode s_CL42T_SendHwCommand(t_sCL42T_MotorInfo * f_MotorInfo_ps, 
             else 
             {
                 Ret_e = FMKIO_Set_OutPwmSigPulses(  (t_eFMKIO_OutPwmSig)f_MotorInfo_ps->signalId_au8[CL42T_SIGTYPE_PULSE],
-                                                    f_SigCmdVal_ps->frequency_u16,
+                                                    f_SigCmdVal_ps->frequency_f32,
                                                     CL42T_NOMINATIVE_DUTYCYCLE,
                                                     f_SigCmdVal_ps->nbPulses_u16);
             }
@@ -1100,8 +1101,9 @@ static t_eReturnCode s_CL42T_FormatHwCmd(t_sCL42T_SetMotorValue f_MotorVal_s, t_
             f_SigCmdVal_ps->direction_e = CL42T_MOTOR_DIRECTION_CCW;
         }
         f_SigCmdVal_ps->state_e = CL42T_MOTOR_STATE_ON;
-        f_SigCmdVal_ps->frequency_u16 = (t_uint16)f_MotorVal_s.frequency_u32;
+        f_SigCmdVal_ps->frequency_f32 = (t_uint16)f_MotorVal_s.frequency_f32;
         f_SigCmdVal_ps->nbPulses_u16 = (t_uint16)f_MotorVal_s.nbPulses_s32;
+        f_SigCmdVal_ps->triggerTimer_u32 = f_MotorVal_s.triggerTimer_u32;
         //---- verified pulses range ----//
         if(f_SigCmdVal_ps->nbPulses_u16 > 0xFFFF)
         {
@@ -1475,13 +1477,14 @@ static t_eReturnCode s_CL42T_MotorCommandMngmt(t_sCL42T_MotorInfo * f_MotorInfo_
     t_eReturnCode Ret_e;
     t_sCL42T_HwSignalCmd hwSigCmd_s = {
         .direction_e = CL42T_MOTOR_DIRECTION_NB,
-        .frequency_u16 = (t_uint16)0,
+        .frequency_f32 = 0.0f,
         .nbPulses_u16 = (t_uint16)0,
         .state_e = CL42T_MOTOR_STATE_NB
     };
     t_uint32 currentTime_u32 = (t_uint32)0;
     t_uint8 safeCnt_u8 = (t_uint8)0;
     t_bool isCmdSend_b = (t_bool)FALSE;
+    t_sint32 deltaTime_s32 = 0;
 
     if(f_MotorInfo_ps == (t_sCL42T_MotorInfo *)NULL)
     {
@@ -1570,6 +1573,18 @@ static t_eReturnCode s_CL42T_MotorCommandMngmt(t_sCL42T_MotorInfo * f_MotorInfo_
                                 //--- not erase the fifo element 'cause this one is valid 
                                 //      we just cant' set the command, we will retry later ----//
                             }
+                            //---- check any planning schedule for this pulse ----//
+                            if(Ret_e == RC_OK)
+                            {
+                                deltaTime_s32 = (t_sint32)(currentTime_u32 - hwSigCmd_s.triggerTimer_u32);
+                                //---- < 0 means not yet ready to send ----//
+                                if(deltaTime_s32 < (t_sint32)0)
+                                {
+                                    Ret_e = RC_WARNING_PENDING;
+                                }
+                                //else > 0 means go for sending 
+
+                            }
                             //---- finally apply the command ^^ ----//
                             if(Ret_e == RC_OK) 
                             {
@@ -1582,7 +1597,7 @@ static t_eReturnCode s_CL42T_MotorCommandMngmt(t_sCL42T_MotorInfo * f_MotorInfo_
                                     //---- update flag ----//
                                     isCmdSend_b = (t_bool)TRUE;
                                     f_MotorInfo_ps->startPulseTime_u32 = currentTime_u32;
-                                    f_MotorInfo_ps->estimPulseTime_f32 = (t_float32)hwSigCmd_s.nbPulses_u16 / (t_float32)hwSigCmd_s.frequency_u16;
+                                    f_MotorInfo_ps->estimPulseTime_f32 = (t_float32)hwSigCmd_s.nbPulses_u16 / hwSigCmd_s.frequency_f32;
                                     f_MotorInfo_ps->estimPulseTime_f32 *= (t_float32)1000.0f; // let in ms
                                     if(hwSigCmd_s.direction_e == CL42T_MOTOR_DIRECTION_CW)
                                     {
@@ -1625,8 +1640,9 @@ static t_eReturnCode s_CL42T_MotorCommandMngmt(t_sCL42T_MotorInfo * f_MotorInfo_
         else if(f_MotorInfo_ps->Health_e == CL42T_DIAGNOSTIC_OK)
         {
             //---- pulse controle managment ----//
-            if((currentTime_u32 - f_MotorInfo_ps->startPulseTime_u32) > (t_uint32)(f_MotorInfo_ps->estimPulseTime_f32 + 10.0f))
+            if((currentTime_u32 - f_MotorInfo_ps->startPulseTime_u32) > (t_uint32)(f_MotorInfo_ps->estimPulseTime_f32 + 50.0f))
             {
+                ASSERT((t_uint16)(currentTime_u32 - f_MotorInfo_ps->startPulseTime_u32));
                 CL42T_LOG(  "[CL42T] Motor %d, Overflow of pulse detected, expected to last %d but %d ms has passed\r\n",
                             f_MotorInfo_ps->selfId_e,
                             (t_uint32)f_MotorInfo_ps->estimPulseTime_f32,
@@ -1771,7 +1787,7 @@ static t_eReturnCode s_CL42T_DebugUpdateSignal(t_sCL42T_MotorInfo * f_motorInfo_
     if(f_motorInfo_ps == (t_sCL42T_MotorInfo *)NULL)
     {
         Ret_e = RC_ERROR_PTR_NULL;
-        ASSERT((t_uint16)NULL);
+        ASSERT((t_uint16)0);
     }
     else 
     {
@@ -1857,7 +1873,7 @@ static t_eReturnCode s_CL42T_DroppAllPulses(t_sCL42T_MotorInfo * f_motorInfo_ps)
     t_uint8 LLI_u8;
     t_sCL42T_HwSignalCmd hwSigCmd_s = {
         .direction_e = CL42T_MOTOR_DIRECTION_NB,
-        .frequency_u16 = (t_uint16)0,
+        .frequency_f32 = 0.0f,
         .nbPulses_u16 = (t_uint16)0,
         .state_e = CL42T_MOTOR_STATE_NB
     };

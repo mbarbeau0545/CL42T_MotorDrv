@@ -113,9 +113,9 @@
 
     typedef struct 
     {
-        t_sint32 nbPulses_s32;
-        t_uint32 frequency_u32;
-
+        t_sint32 nbPulses_s32;          //---- Number of pulses to send ----//
+        t_float32 frequency_f32;         //---- Frequency of the PWM ----//
+        t_uint32 triggerTimer_u32;      //---- Absolute timer for sending pulses in ms (Tick) ----//
     } t_sCL42T_SetMotorValue;
 
     // ********************************************************************
@@ -220,8 +220,11 @@
     *                   from the pulseFinishCallback, so from this API you command will be store in queue 
     *                   that can contains CL42T_CMD_QUEUE_SIZE, this number can be increrase/decrease as you wish
     *               It means you can accumulate command and the module will send it to the motor
-    *               in a asynchronous way, if something went wrong during this process you will be call 
-    *               with the f_diagEvnt_pcb callback
+    *               in a asynchronous way, by controlling with triggerTimer_u32 when the pulse has to be send in absolute time (Tick).
+    *               For example if you want to set a pulse and wait 500 ms to set another pulse, you have to provide triggerTimer_u32 = currentTick + 500.
+    *               if something went wrong during this process you will be call. If you want to send pulses ASAP the motor is read put 0.
+    * @warning      If you plan a pulse generation in 10000 ms no command will be send before that.
+    *               with the f_diagEvnt_pcb callback.
     *               If the motor status not allowed command the bit CL42T_MOTOR_STS_CMD_ENABLE in f_MotorStsInfo_pu16 will be set to 0.
     * @note         A deadtime is applied whenever a change of direction is detected by software 
     *               which means every time a change of dir happened, the motor is stop CL42T_DEAD_TIME_TRANSITION millisecond
