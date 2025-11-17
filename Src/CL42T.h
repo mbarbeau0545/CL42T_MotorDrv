@@ -68,7 +68,8 @@
 
     typedef enum 
     {
-        CL42T_BITFIELD_MOTOR_ON = 0,         //---- Bit to 1 -> motor is moving, bit to 0 -> motor is off ----//
+        CL42T_BITFIELD_MOTOR_ENABLE = 0,     //---- Bit to 1 motor is enable and can rotate/rcv cmd, bit to 0 -> motor is not controlled by driver (can be moved by hand)
+        CL42T_BITFIELD_MOTOR_ON,             //---- Bit to 1 -> motor is moving, bit to 0 -> motor is off ----//
         CL42T_BITFILED_MOTOR_DIR,            //---- Ignore bit if motor is OFF, Bit to 1 -> CL42T_MOTOR_DIRECTION_CCW, bit to 0 -> CL42T_MOTOR_DIRECTION_CCW ----//
         CL42T_BITFIELD_IN_DEAD_TIME,         //---- Bit to 1 -> motor is in deadtime state, bit to 0 motor is not to deadtime state ----//
         CL42T_BITFIELD_TRIG_ENDSTOP_CW,      //---- Bit to 1 -> motor has reach the endStop ClockWise limit, bit to 0 -> not reach ----//

@@ -103,7 +103,7 @@ static t_eCyclicModState g_CL42T_ModState_e = STATE_CYCLIC_PREOPE;
 static t_sCL42T_DiagMngmt g_diagMngmt_as[CL42T_MOTOR_NB];
 
 ///@brief Queue Buffer Command 
-t_sCL42T_HwSignalCmd g_BufferHwCmd_as[CL42T_MOTOR_NB][CL42T_CMD_QUEUE_SIZE];
+static t_sCL42T_HwSignalCmd g_BufferHwCmd_as[CL42T_MOTOR_NB][CL42T_CMD_QUEUE_SIZE];
 //********************************************************************************
 //                      Local functions - Prototypes
 //********************************************************************************
@@ -632,20 +632,28 @@ t_eReturnCode CL42T_SetMotorSigValue(   t_eCL42T_MotorId f_motorId_e,
     {
         motorInfo_ps = (t_sCL42T_MotorInfo *)(&g_MotorInfo_as[f_motorId_e]);
 
-        Ret_e = s_CL42T_FormatHwCmd(f_MotorValue_s, &hwSigCmd_s);
-
-        if(Ret_e == RC_OK)
+        if(GETBIT(motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ENABLE) == BIT_IS_RESET_16B)
         {
-            //---- protection of the queue ----//
-            __disable_irq();
-            Ret_e = LIBQUEUE_WriteElement(  &motorInfo_ps->HwCmdFifo_s,
-                                            &hwSigCmd_s,
-                                            sizeof(hwSigCmd_s));
-            __enable_irq();
-            //---- means no more place in queue ----//
-            if(Ret_e == RC_WARNING_LIMIT_REACHED)
+            Ret_e = RC_WARNING_NOT_ALLOWED;
+            ASSERT(motorInfo_ps->maskInfo_u16);
+        }
+        else 
+        {
+            Ret_e = s_CL42T_FormatHwCmd(f_MotorValue_s, &hwSigCmd_s);
+
+            if(Ret_e == RC_OK)
             {
-                Ret_e = RC_WARNING_BUSY;
+                //---- protection of the queue ----//
+                __disable_irq();
+                Ret_e = LIBQUEUE_WriteElement(  &motorInfo_ps->HwCmdFifo_s,
+                                                &hwSigCmd_s,
+                                                sizeof(hwSigCmd_s));
+                __enable_irq();
+                //---- means no more place in queue ----//
+                if(Ret_e == RC_WARNING_LIMIT_REACHED)
+                {
+                    Ret_e = RC_WARNING_BUSY;
+                }
             }
         }
     }
@@ -761,6 +769,10 @@ t_eReturnCode CL42T_SetMotorState(  t_eCL42T_MotorId f_motorId_e,
             {
                 Ret_e = FMKIO_Set_OutDigSigValue(   (t_eFMKIO_OutDigSig)motorInfo_ps->signalId_au8[CL42T_SIGTYPE_STATE],
                                                     FMKIO_DIG_VALUE_HIGH);
+                if(Ret_e == RC_OK)
+                {
+                    RESETBIT_16B(motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ENABLE);
+                }
             }
             else // just stop pulse 
             {
@@ -770,7 +782,7 @@ t_eReturnCode CL42T_SetMotorState(  t_eCL42T_MotorId f_motorId_e,
                                                     (t_uint16)0);
             }
             if(Ret_e == RC_OK)
-            {            
+            {
                 RESETBIT_16B(motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ON);
                 //---- flush the queue and call user with dropp !!! @todo ----//
                 Ret_e = s_CL42T_DroppAllPulses(motorInfo_ps);
@@ -784,6 +796,10 @@ t_eReturnCode CL42T_SetMotorState(  t_eCL42T_MotorId f_motorId_e,
             //      maybe  deal that in other way if deadtime < 200 ms 
             Ret_e = FMKIO_Set_OutDigSigValue(   (t_eFMKIO_OutDigSig)motorInfo_ps->signalId_au8[CL42T_SIGTYPE_STATE],
                                                 FMKIO_DIG_VALUE_LOW);
+            if(Ret_e == RC_OK)
+            {
+                SETBIT_16B(motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ENABLE);
+            }
             SETBIT_16B(motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_IN_DEAD_TIME);
             FMKCPU_GetTick(&motorInfo_ps->InhibTime_u32);
         }        
@@ -875,47 +891,7 @@ static t_eReturnCode s_CL42T_OperationalState(void)
  *********************************/
 static t_eReturnCode s_CL42T_PreOpeState(void)
 {
-    t_eReturnCode Ret_e;
-    t_uint8 idxMotor_u8;
-    t_sCL42T_MotorInfo * motorInfo_ps;
-    static t_bool s_IsEnableSet_b = (t_bool)FALSE;
-    static t_uint32 s_saveTime_u32 = (t_uint32)0;
-    t_uint32 currentTIme_u32;
-
-    if(s_IsEnableSet_b == (t_bool)FALSE)
-    {
-        Ret_e = RC_OK;
-        for(idxMotor_u8 = (t_uint8)0 ; (idxMotor_u8 < CL42T_MOTOR_NB) && (Ret_e >= RC_OK) ; idxMotor_u8++)
-        {
-            motorInfo_ps = (t_sCL42T_MotorInfo *)(&g_MotorInfo_as[idxMotor_u8]);
-            if(motorInfo_ps->isConfigured_b == (t_bool)TRUE)
-            {
-                Ret_e = FMKIO_Set_OutDigSigValue(   (t_eFMKIO_OutDigSig)motorInfo_ps->signalId_au8[CL42T_SIGTYPE_STATE],
-                                                    FMKIO_DIG_VALUE_LOW); // low means enable
-            }
-        }
-        if(Ret_e == RC_OK)
-        {
-            s_IsEnableSet_b = (t_bool)TRUE;
-            FMKCPU_GetTick(&s_saveTime_u32);
-            Ret_e = RC_WARNING_PENDING;
-        }
-    }
-    else 
-    {
-        FMKCPU_GetTick(&currentTIme_u32);
-
-        if((currentTIme_u32 - s_saveTime_u32) > (t_uint32)CL42T_ENABLE_MOTOR_TIMEOUT)
-        {
-            Ret_e = RC_OK;
-        }
-        else 
-        {
-            Ret_e = RC_WARNING_PENDING;
-        }
-    }
-
-    return Ret_e;
+    return RC_OK;
 }
 
 /*********************************
@@ -941,7 +917,7 @@ static t_eReturnCode s_CL42T_PerformDiagnostic( t_eCL42T_MotorId f_idMotor_e,
         }
 
         //---- check if the motor is still ON ----//
-        if(GETBIT(motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ON == BIT_IS_SET_16B))
+        if(GETBIT(motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ON) == BIT_IS_SET_16B)
         {
             //---- try to shut down by cutting dutycycle ----//
             Ret_e = FMKIO_Set_OutPwmSigDutyCycle(   motorInfo_ps->signalId_au8[CL42T_SIGTYPE_PULSE],
@@ -1101,7 +1077,7 @@ static t_eReturnCode s_CL42T_FormatHwCmd(t_sCL42T_SetMotorValue f_MotorVal_s, t_
             f_SigCmdVal_ps->direction_e = CL42T_MOTOR_DIRECTION_CCW;
         }
         f_SigCmdVal_ps->state_e = CL42T_MOTOR_STATE_ON;
-        f_SigCmdVal_ps->frequency_f32 = (t_uint16)f_MotorVal_s.frequency_f32;
+        f_SigCmdVal_ps->frequency_f32 = (t_float32)f_MotorVal_s.frequency_f32;
         f_SigCmdVal_ps->nbPulses_u16 = (t_uint16)f_MotorVal_s.nbPulses_s32;
         f_SigCmdVal_ps->triggerTimer_u32 = f_MotorVal_s.triggerTimer_u32;
         //---- verified pulses range ----//
@@ -1140,7 +1116,7 @@ static void s_CL42T_SigErrorMngmt(t_eFMKIO_SigType f_type_e,
                 {
                     for(idxSignal_u8 = (t_uint8)0 ; idxSignal_u8 < CL42T_SIGTYPE_NB ; idxSignal_u8++)
                     {
-                        if(g_MotorInfo_as->signalId_au8[idxSignal_u8] == f_signalId_u8)
+                        if(g_MotorInfo_as[idxMotor_u8].signalId_au8[idxSignal_u8] == f_signalId_u8)
                         {
                             CL42T_LOG("[CL42T] Error on Pwm %d, debug1 -> %d, debug2 ->%d",
                                         idxSignal_u8,
