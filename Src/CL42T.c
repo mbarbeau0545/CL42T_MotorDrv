@@ -491,7 +491,6 @@ t_eReturnCode CL42T_Cyclic(void)
         }
     break;
     case STATE_CYCLIC_CFG:
-    case STATE_CYCLIC_WAITING:
     case STATE_CYCLIC_BUSY:
     default:
         Ret_e = RC_OK;
