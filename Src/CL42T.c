@@ -1384,13 +1384,12 @@ static t_eReturnCode s_CL42T_AddEndStopSignal(  t_sCL42T_MotorInfo * f_motorInfo
         if(f_endStopCfg_ps->EndStopSignal_e < FMKIO_INPUT_SIGEVNT_NB)
         {
             Ret_e = RC_OK;
-            #warning([CL42T] : Evnt Signal disactivated)
-            // Ret_e = FMKIO_Set_InEvntSigCfg( f_endStopCfg_ps->EndStopSignal_e,
-            //                                 f_endStopCfg_ps->PullMode_e,
-            //                                 f_endStopCfg_ps->triggerEvnt_e,
-            //                                 (t_uint32)f_endStopCfg_ps->debuncValue_u16,
-            //                                 s_CL42T_EvntEndStopCallback,
-            //                                 NULL_FUNCTION);
+            Ret_e = FMKIO_Set_InEvntSigCfg( f_endStopCfg_ps->EndStopSignal_e,
+                                            f_endStopCfg_ps->PullMode_e,
+                                            f_endStopCfg_ps->triggerEvnt_e,
+                                            (t_uint32)f_endStopCfg_ps->debuncValue_u16,
+                                            s_CL42T_EvntEndStopCallback,
+                                            NULL_FUNCTION);
         }
         else
         {
@@ -1779,6 +1778,7 @@ static t_eReturnCode s_CL42T_CounterDiagMngmt(t_eCL42T_MotorId f_motorId_e, t_ui
 static t_eReturnCode s_CL42T_DebugUpdateSignal(t_sCL42T_MotorInfo * f_motorInfo_ps)
 {
     t_eReturnCode Ret_e;
+    t_sCL42T_MtrDebugInfo * mtrSigInfo_ps;
 
     if(f_motorInfo_ps == (t_sCL42T_MotorInfo *)NULL)
     {
@@ -1787,74 +1787,25 @@ static t_eReturnCode s_CL42T_DebugUpdateSignal(t_sCL42T_MotorInfo * f_motorInfo_
     }
     else 
     {
-        switch(f_motorInfo_ps->selfId_e)
-        {
-            case CL42T_MOTOR_1:
-                Ret_e = APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_1_STATE, 
-                                                (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ON));
-                Ret_e |= APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_1_CW_ENDSTOP, 
-                                                (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_TRIG_ENDSTOP_CW));
-                Ret_e |= APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_1_CCW_ENDSTOP, 
-                                                (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_TRIG_ENDSTOP_CCW));
-                Ret_e |= APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_1_DEADTIME, 
-                                                (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_IN_DEAD_TIME));
-                Ret_e |= APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_1_DIRECTION, 
-                                                (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFILED_MOTOR_DIR));
-                Ret_e |= APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_1_HEALTH, 
-                                                (t_float32)f_motorInfo_ps->Health_e);
-            break;
-            case CL42T_MOTOR_2:
-                Ret_e = APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_2_STATE, 
-                                                (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ON));
-                Ret_e |= APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_2_CW_ENDSTOP, 
-                                                (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_TRIG_ENDSTOP_CW));
-                Ret_e |= APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_2_CCW_ENDSTOP, 
-                                                (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_TRIG_ENDSTOP_CCW));
-                Ret_e |= APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_2_DEADTIME, 
-                                                (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_IN_DEAD_TIME));
-                Ret_e |= APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_2_DIRECTION, 
-                                                (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFILED_MOTOR_DIR));
-                Ret_e |= APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_2_HEALTH, 
-                                                (t_float32)f_motorInfo_ps->Health_e);
-            break;
-            case CL42T_MOTOR_3:
-                Ret_e = APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_3_STATE, 
-                                                (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ON));
-                Ret_e |= APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_3_CW_ENDSTOP, 
-                                                (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_TRIG_ENDSTOP_CW));
-                Ret_e |= APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_3_CCW_ENDSTOP, 
-                                                (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_TRIG_ENDSTOP_CCW));
-                Ret_e |= APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_3_DEADTIME, 
-                                                (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_IN_DEAD_TIME));
-                Ret_e |= APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_3_DIRECTION, 
-                                                (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFILED_MOTOR_DIR));
-                Ret_e |= APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_3_HEALTH, 
-                                                (t_float32)f_motorInfo_ps->Health_e);
-            break;
-            case CL42T_MOTOR_4:
-                Ret_e = APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_4_STATE, 
-                                                (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ON));
-                Ret_e |= APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_4_CW_ENDSTOP, 
-                                                (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_TRIG_ENDSTOP_CW));
-                Ret_e |= APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_4_CCW_ENDSTOP, 
-                                                (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_TRIG_ENDSTOP_CCW));
-                Ret_e |= APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_4_DEADTIME, 
-                                                (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_IN_DEAD_TIME));
-                Ret_e |= APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_4_DIRECTION, 
-                                                (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFILED_MOTOR_DIR));
-                Ret_e |= APPSIG_SetSignalValue(  APPSIG_SIGNAL_CL42T_MTR_4_HEALTH, 
-                                                (t_float32)f_motorInfo_ps->Health_e);
-            break;
-            case CL42T_MOTOR_NB:
-            default:
-                    Ret_e = RC_OK;
-            break;
-        }
-    }
-    if(Ret_e != RC_OK)
-    {
-        ASSERT((t_uint16)Ret_e);
-        Ret_e = RC_OK;
+        mtrSigInfo_ps = &c_CL42T_SigMtrDebug[f_motorInfo_ps->selfId_e];
+
+        Ret_e = APPSIG_SetSignalValue(  mtrSigInfo_ps->mtrState_e,
+                                        (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ON));
+
+        Ret_e |= APPSIG_SetSignalValue(  mtrSigInfo_ps->cwEndStop_e,
+                                        (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_TRIG_ENDSTOP_CW));
+
+        Ret_e |= APPSIG_SetSignalValue(  mtrSigInfo_ps->ccwEndStop_e,
+                                        (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_TRIG_ENDSTOP_CCW));
+
+        Ret_e |= APPSIG_SetSignalValue(  mtrSigInfo_ps->deadTime_e,
+                                        (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_IN_DEAD_TIME));
+
+        Ret_e |= APPSIG_SetSignalValue(  mtrSigInfo_ps->direction_e,
+                                        (t_float32)GETBIT(f_motorInfo_ps->maskInfo_u16, CL42T_BITFILED_MOTOR_DIR));
+
+        Ret_e |= APPSIG_SetSignalValue(  mtrSigInfo_ps->health_e,
+                                        (t_float32)f_motorInfo_ps->Health_e);
     }
 
     return Ret_e;
