@@ -74,7 +74,7 @@ typedef struct
 {
     t_eCL42T_MotorDirection direction_e;        //---- CL42T Driver Direction pin value ----//
     t_eCL42T_MotorState state_e;                //---- CL42T Driver state pin value ----//
-    t_uint16 nbPulses_u16;                      //---- CL42T Driver nb pulses pin value ----//
+    t_uint32 nbPulses_u32;                      //---- CL42T Driver nb pulses pin value ----//
     t_float32 frequency_f32;                    //---- CL42T Driver Frequency pin value ----//
     t_uint32 triggerTimer_u32;                  //---- Information to plan when to send pulses  ----//
 } t_sCL42T_HwSignalCmd;
@@ -1040,7 +1040,7 @@ static t_eReturnCode s_CL42T_SendHwCommand(t_sCL42T_MotorInfo * f_MotorInfo_ps, 
             else 
             {
                 //---- if infinite pulse, just set a PWM, user has to so send 0 ----//
-                if(f_SigCmdVal_ps->nbPulses_u16 == CL42T_SEND_INFINITE_PULSE)
+                if(f_SigCmdVal_ps->nbPulses_u32 == CL42T_SEND_INFINITE_PULSE)
                 {
                     Ret_e = FMKIO_Set_OutPwmSigFrequency(   (t_eFMKIO_OutPwmSig)f_MotorInfo_ps->signalId_au8[CL42T_SIGTYPE_PULSE],
                                                             f_SigCmdVal_ps->frequency_f32);
@@ -1055,7 +1055,7 @@ static t_eReturnCode s_CL42T_SendHwCommand(t_sCL42T_MotorInfo * f_MotorInfo_ps, 
                     Ret_e = FMKIO_Set_OutPwmSigPulses(  (t_eFMKIO_OutPwmSig)f_MotorInfo_ps->signalId_au8[CL42T_SIGTYPE_PULSE],
                                                     f_SigCmdVal_ps->frequency_f32,
                                                     CL42T_NOMINATIVE_DUTYCYCLE,
-                                                    f_SigCmdVal_ps->nbPulses_u16);
+                                                    f_SigCmdVal_ps->nbPulses_u32);
                 }                
             }
         }
@@ -1091,10 +1091,11 @@ static t_eReturnCode s_CL42T_FormatHwCmd(t_sCL42T_SetMotorValue f_MotorVal_s, t_
         }
         f_SigCmdVal_ps->state_e = CL42T_MOTOR_STATE_ON;
         f_SigCmdVal_ps->frequency_f32 = (t_float32)f_MotorVal_s.frequency_f32;
-        f_SigCmdVal_ps->nbPulses_u16 = (t_uint16)f_MotorVal_s.nbPulses_s32;
+        f_SigCmdVal_ps->nbPulses_u32 = (t_uint32)f_MotorVal_s.nbPulses_s32;
         f_SigCmdVal_ps->triggerTimer_u32 = f_MotorVal_s.triggerTimer_u32;
         //---- verified pulses range ----//
-        if(f_SigCmdVal_ps->nbPulses_u16 > 0xFFFF)
+        if((f_SigCmdVal_ps->nbPulses_u32 > 0xFFFF)
+        && (f_SigCmdVal_ps->nbPulses_u32 != CL42T_SEND_INFINITE_PULSE))
         {
             Ret_e = RC_ERROR_PARAM_INVALID;
         }
@@ -1466,7 +1467,7 @@ static t_eReturnCode s_CL42T_MotorCommandMngmt(t_sCL42T_MotorInfo * f_MotorInfo_
     t_sCL42T_HwSignalCmd hwSigCmd_s = {
         .direction_e = CL42T_MOTOR_DIRECTION_NB,
         .frequency_f32 = 0.0f,
-        .nbPulses_u16 = (t_uint16)0,
+        .nbPulses_u32 = (t_uint16)0,
         .state_e = CL42T_MOTOR_STATE_NB
     };
     t_uint32 currentTime_u32 = (t_uint32)0;
@@ -1531,7 +1532,7 @@ static t_eReturnCode s_CL42T_MotorCommandMngmt(t_sCL42T_MotorInfo * f_MotorInfo_
                             if(f_MotorInfo_ps->pulseDroppCallback_pcb != NULL_FUNCTION)
                             {
                                 f_MotorInfo_ps->pulseDroppCallback_pcb( f_MotorInfo_ps->selfId_e, 
-                                                                        hwSigCmd_s.nbPulses_u16,
+                                                                        hwSigCmd_s.nbPulses_u32,
                                                                         hwSigCmd_s.direction_e);
                             }
                             //---- we dropped the command and will not be executed ----//
@@ -1582,12 +1583,17 @@ static t_eReturnCode s_CL42T_MotorCommandMngmt(t_sCL42T_MotorInfo * f_MotorInfo_
                                 if((Ret_e == RC_OK)
                                 || (Ret_e == RC_WARNING_ALREADY_CONFIGURED))
                                 {
+                                    CL42T_LOG("[CL42T] Send cmd to Motor %d, freq %d, pulses %d, dir %d\r\n",
+                                                (t_uint32)f_MotorInfo_ps->selfId_e,
+                                                (t_uint32)hwSigCmd_s.frequency_f32,
+                                                hwSigCmd_s.nbPulses_u32,
+                                                (t_uint32)hwSigCmd_s.direction_e);
                                     //---- update flag ----//
                                     isCmdSend_b = (t_bool)TRUE;
                                     f_MotorInfo_ps->startPulseTime_u32 = currentTime_u32;
-                                    if(hwSigCmd_s.nbPulses_u16 != CL42T_SEND_INFINITE_PULSE)
+                                    if(hwSigCmd_s.nbPulses_u32 != CL42T_SEND_INFINITE_PULSE)
                                     {
-                                        f_MotorInfo_ps->estimPulseTime_f32 = (t_float32)hwSigCmd_s.nbPulses_u16 / hwSigCmd_s.frequency_f32;
+                                        f_MotorInfo_ps->estimPulseTime_f32 = (t_float32)hwSigCmd_s.nbPulses_u32 / hwSigCmd_s.frequency_f32;
                                         f_MotorInfo_ps->estimPulseTime_f32 *= (t_float32)1000.0f; // let in ms
                                     }
                                     else 
@@ -1608,11 +1614,6 @@ static t_eReturnCode s_CL42T_MotorCommandMngmt(t_sCL42T_MotorInfo * f_MotorInfo_
                                     f_MotorInfo_ps->endStoptrigger_e = CL42T_MOTOR_DIRECTION_NB;
                                     //---- deleted the Command in Fifo ----//
                                     (void)LIBQUEUE_ReadElement(&f_MotorInfo_ps->HwCmdFifo_s, NULL, sizeof(hwSigCmd_s));
-                                    CL42T_LOG("[CL42T] Send cmd to Motor %d, freq %.2f, pulses %d, dir %d\r\n",
-                                                (t_uint32)f_MotorInfo_ps->selfId_e,
-                                                hwSigCmd_s.frequency_f32,
-                                                hwSigCmd_s.nbPulses_u16,
-                                                (t_uint32)hwSigCmd_s.direction_e);
                                 }
                                 else if(Ret_e != RC_WARNING_BUSY)
                                 {
@@ -1635,7 +1636,7 @@ static t_eReturnCode s_CL42T_MotorCommandMngmt(t_sCL42T_MotorInfo * f_MotorInfo_
         else if(f_MotorInfo_ps->Health_e == CL42T_DIAGNOSTIC_OK)
         {
             //---- pulse controle managment ----//
-            if((currentTime_u32 - f_MotorInfo_ps->startPulseTime_u32) > (t_uint32)(f_MotorInfo_ps->estimPulseTime_f32 + 50.0f))
+            if((currentTime_u32 - f_MotorInfo_ps->startPulseTime_u32) > (t_uint32)(f_MotorInfo_ps->estimPulseTime_f32 + 10.0f))
             {
                 ASSERT((t_uint16)(currentTime_u32 - f_MotorInfo_ps->startPulseTime_u32));
                 CL42T_LOG(  "[CL42T] Motor %d, Overflow of pulse detected, expected to last %d but %d ms has passed\r\n",
@@ -1778,7 +1779,7 @@ static t_eReturnCode s_CL42T_CounterDiagMngmt(t_eCL42T_MotorId f_motorId_e, t_ui
 static t_eReturnCode s_CL42T_DebugUpdateSignal(t_sCL42T_MotorInfo * f_motorInfo_ps)
 {
     t_eReturnCode Ret_e;
-    t_sCL42T_MtrDebugInfo * mtrSigInfo_ps;
+    const t_sCL42T_MtrDebugInfo * mtrSigInfo_ps;
 
     if(f_motorInfo_ps == (t_sCL42T_MotorInfo *)NULL)
     {
@@ -1821,7 +1822,7 @@ static t_eReturnCode s_CL42T_DroppAllPulses(t_sCL42T_MotorInfo * f_motorInfo_ps)
     t_sCL42T_HwSignalCmd hwSigCmd_s = {
         .direction_e = CL42T_MOTOR_DIRECTION_NB,
         .frequency_f32 = 0.0f,
-        .nbPulses_u16 = (t_uint16)0,
+        .nbPulses_u32 = (t_uint16)0,
         .state_e = CL42T_MOTOR_STATE_NB
     };
 
@@ -1846,13 +1847,13 @@ static t_eReturnCode s_CL42T_DroppAllPulses(t_sCL42T_MotorInfo * f_motorInfo_ps)
             {
                 CL42T_LOG("[CL42T] Motor Id %d, dropp %d pulse in %d direction\r\n",
                             f_motorInfo_ps->selfId_e,
-                            hwSigCmd_s.nbPulses_u16,
+                            hwSigCmd_s.nbPulses_u32,
                             hwSigCmd_s.direction_e);
 
                 if(f_motorInfo_ps->pulseDroppCallback_pcb != NULL_FUNCTION)
                 {
                     f_motorInfo_ps->pulseDroppCallback_pcb( f_motorInfo_ps->selfId_e,
-                                                            hwSigCmd_s.nbPulses_u16,
+                                                            (t_uint32)hwSigCmd_s.nbPulses_u32,
                                                             hwSigCmd_s.direction_e);
                 }
             }
