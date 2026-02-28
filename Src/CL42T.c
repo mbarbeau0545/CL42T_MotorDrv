@@ -1092,13 +1092,7 @@ static t_eReturnCode s_CL42T_FormatHwCmd(t_sCL42T_SetMotorValue f_MotorVal_s, t_
         f_SigCmdVal_ps->state_e = CL42T_MOTOR_STATE_ON;
         f_SigCmdVal_ps->frequency_f32 = (t_float32)f_MotorVal_s.frequency_f32;
         f_SigCmdVal_ps->nbPulses_u32 = (t_uint32)f_MotorVal_s.nbPulses_s32;
-        f_SigCmdVal_ps->triggerTimer_u32 = f_MotorVal_s.triggerTimer_u32;
-        //---- verified pulses range ----//
-        if((f_SigCmdVal_ps->nbPulses_u32 > 0xFFFF)
-        && (f_SigCmdVal_ps->nbPulses_u32 != CL42T_SEND_INFINITE_PULSE))
-        {
-            Ret_e = RC_ERROR_PARAM_INVALID;
-        }
+        f_SigCmdVal_ps->triggerTimer_u32 = f_MotorVal_s.triggerTimer_u32;        
     }
 
     return Ret_e;
