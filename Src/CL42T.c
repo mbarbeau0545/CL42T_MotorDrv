@@ -21,6 +21,14 @@
 // ********************************************************************
 // *                      Defines
 // ********************************************************************
+#if defined(__arm__) || defined(__thumb__)
+    #define CL42T_IRQ_DISABLE() __disable_irq()
+    #define CL42T_IRQ_ENABLE()  __enable_irq()
+#else
+    #define CL42T_IRQ_DISABLE() ((void)0)
+    #define CL42T_IRQ_ENABLE()  ((void)0)
+#endif
+
 ///@brief mapping 
 #define CL42T_LOG   FMKSRL_LOG
 // ********************************************************************
@@ -638,16 +646,16 @@ t_eReturnCode CL42T_SetMotorSigValue(   t_eCL42T_MotorId f_motorId_e,
         }
         else 
         {
-            Ret_e = s_CL42T_FormatHwCmd(f_MotorValue_s, &hwSigCmd_s);
+                Ret_e = s_CL42T_FormatHwCmd(f_MotorValue_s, &hwSigCmd_s);
 
             if(Ret_e == RC_OK)
             {
                 //---- protection of the queue ----//
-                __disable_irq();
+                CL42T_IRQ_DISABLE();
                 Ret_e = LIBQUEUE_WriteElement(  &motorInfo_ps->HwCmdFifo_s,
                                                 &hwSigCmd_s,
                                                 sizeof(hwSigCmd_s));
-                __enable_irq();
+                CL42T_IRQ_ENABLE();
                 //---- means no more place in queue ----//
                 if(Ret_e == RC_WARNING_LIMIT_REACHED)
                 {
@@ -1582,30 +1590,36 @@ static t_eReturnCode s_CL42T_MotorCommandMngmt(t_sCL42T_MotorInfo * f_MotorInfo_
                                                 (t_uint32)hwSigCmd_s.frequency_f32,
                                                 hwSigCmd_s.nbPulses_u32,
                                                 (t_uint32)hwSigCmd_s.direction_e);
+                                                
                                     //---- update flag ----//
                                     isCmdSend_b = (t_bool)TRUE;
                                     f_MotorInfo_ps->startPulseTime_u32 = currentTime_u32;
-                                    if(hwSigCmd_s.nbPulses_u32 != CL42T_SEND_INFINITE_PULSE)
+
+                                    if((hwSigCmd_s.nbPulses_u32 != CL42T_SEND_INFINITE_PULSE)
+                                    && (hwSigCmd_s.nbPulses_u32 != (t_sint32)0))
                                     {
                                         f_MotorInfo_ps->estimPulseTime_f32 = (t_float32)hwSigCmd_s.nbPulses_u32 / hwSigCmd_s.frequency_f32;
                                         f_MotorInfo_ps->estimPulseTime_f32 *= (t_float32)1000.0f; // let in ms
+
+                                        if(hwSigCmd_s.direction_e == CL42T_MOTOR_DIRECTION_CW)
+                                        {
+                                            RESETBIT_16B(f_MotorInfo_ps->maskInfo_u16, CL42T_BITFILED_MOTOR_DIR);    
+                                        }
+                                        else // CL42T_MOTOR_DIRECTION_CCW
+                                        {
+                                            SETBIT_16B(f_MotorInfo_ps->maskInfo_u16, CL42T_BITFILED_MOTOR_DIR);    
+                                        }
+                                        SETBIT_16B(f_MotorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ON);
+                                        RESETBIT_16B(f_MotorInfo_ps->maskInfo_u16, CL42T_BITFIELD_TRIG_ENDSTOP_CW);
+                                        RESETBIT_16B(f_MotorInfo_ps->maskInfo_u16, CL42T_BITFIELD_TRIG_ENDSTOP_CCW);
+                                        f_MotorInfo_ps->endStoptrigger_e = CL42T_MOTOR_DIRECTION_NB;
                                     }
                                     else 
                                     {
                                         f_MotorInfo_ps->estimPulseTime_f32 = (t_float32)(CST_MAX_UINT_32BIT);
+                                        RESETBIT_16B(f_MotorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ON);
                                     }
-                                    if(hwSigCmd_s.direction_e == CL42T_MOTOR_DIRECTION_CW)
-                                    {
-                                        RESETBIT_16B(f_MotorInfo_ps->maskInfo_u16, CL42T_BITFILED_MOTOR_DIR);    
-                                    }
-                                    else // CL42T_MOTOR_DIRECTION_CCW
-                                    {
-                                        SETBIT_16B(f_MotorInfo_ps->maskInfo_u16, CL42T_BITFILED_MOTOR_DIR);    
-                                    }
-                                    SETBIT_16B(f_MotorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ON);
-                                    RESETBIT_16B(f_MotorInfo_ps->maskInfo_u16, CL42T_BITFIELD_TRIG_ENDSTOP_CW);
-                                    RESETBIT_16B(f_MotorInfo_ps->maskInfo_u16, CL42T_BITFIELD_TRIG_ENDSTOP_CCW);
-                                    f_MotorInfo_ps->endStoptrigger_e = CL42T_MOTOR_DIRECTION_NB;
+                                    
                                     //---- deleted the Command in Fifo ----//
                                     (void)LIBQUEUE_ReadElement(&f_MotorInfo_ps->HwCmdFifo_s, NULL, sizeof(hwSigCmd_s));
                                 }
