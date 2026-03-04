@@ -422,8 +422,8 @@ t_eReturnCode CL42T_Init(void)
     t_uint8 idxSignal_u8;
     t_sLIBQUEUE_QueueCfg HwQueueCfg_s = {
         .bufferHead_pv = NULL,
-        .bufferSize_u8 = (t_uint8)CL42T_CMD_QUEUE_SIZE,
-        .elementSize_u8 = sizeof(t_sCL42T_HwSignalCmd),
+        .actualSize_u16 = (t_uint8)CL42T_CMD_QUEUE_SIZE,
+        .elementSize_u16 = sizeof(t_sCL42T_HwSignalCmd),
         .enableOverwrite_b = (t_bool)FALSE
     };
 
@@ -697,6 +697,14 @@ t_eReturnCode CL42T_GetMotorInfo(   t_eCL42T_MotorId f_motorId_e,
     {
         Ret_e = RC_OK;
         *f_MotorStsInfo_pu16 = g_MotorInfo_as[f_motorId_e].maskInfo_u16;
+
+        //---- fixbug sometimes there is still cmd in queue and
+        //       interruption has been called cyclic not yet 
+        //          so the motor is OFF but in logic point of view it is still ON ----//
+        if(g_MotorInfo_as[f_motorId_e].HwCmdFifo_s.actualSize_u16 > (t_uint16)0)
+        {
+            SETBIT_16B(*f_MotorStsInfo_pu16, CL42T_BITFIELD_MOTOR_ON);
+        }
     }
 
     return Ret_e;
@@ -1090,12 +1098,12 @@ static t_eReturnCode s_CL42T_FormatHwCmd(t_sCL42T_SetMotorValue f_MotorVal_s, t_
         //---- wrtie hardware signal ----//
         if(f_MotorVal_s.nbPulses_s32 > (t_sint32)0)
         {
-            f_SigCmdVal_ps->direction_e = CL42T_MOTOR_DIRECTION_CW;
+            f_SigCmdVal_ps->direction_e = CL42T_MOTOR_DIRECTION_CCW;
         }
         else 
         {
             f_MotorVal_s.nbPulses_s32 *= (t_sint32)(-1);
-            f_SigCmdVal_ps->direction_e = CL42T_MOTOR_DIRECTION_CCW;
+            f_SigCmdVal_ps->direction_e = CL42T_MOTOR_DIRECTION_CW;
         }
         f_SigCmdVal_ps->state_e = CL42T_MOTOR_STATE_ON;
         f_SigCmdVal_ps->frequency_f32 = (t_float32)f_MotorVal_s.frequency_f32;
