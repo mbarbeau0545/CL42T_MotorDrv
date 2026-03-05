@@ -952,7 +952,7 @@ static t_eReturnCode s_CL42T_PerformDiagnostic( t_eCL42T_MotorId f_idMotor_e,
             //--- mtoor off so dizagnostic also off
             if(motorInfo_ps->Health_e == CL42T_DIAGNOSTIC_PULSE_INFINITE)
             {
-                motorInfo_ps->Health_e = CL42T_DIAGNOSTIC_OK;
+                motorInfo_ps->Health_e = CL42T_DIAGNOSTIC_OK;                
             }
         }
         //---- If it's not countor error it is signal error or infinite pulse, already set in health variable ----//
@@ -1667,6 +1667,7 @@ static t_eReturnCode s_CL42T_MotorCommandMngmt(t_sCL42T_MotorInfo * f_MotorInfo_
                             (currentTime_u32 - f_MotorInfo_ps->startPulseTime_u32));
                 f_MotorInfo_ps->flagErrorDetected_b = (t_bool)TRUE;
                 f_MotorInfo_ps->Health_e = CL42T_DIAGNOSTIC_PULSE_INFINITE;
+                f_MotorInfo_ps->diagCallback_pcb(f_MotorInfo_ps->selfId_e, f_MotorInfo_ps->Health_e);
             }
 
             Ret_e = RC_WARNING_NO_OPERATION;
