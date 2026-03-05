@@ -1537,7 +1537,7 @@ static t_eReturnCode s_CL42T_MotorCommandMngmt(t_sCL42T_MotorInfo * f_MotorInfo_
                         || ((GETBIT(f_MotorInfo_ps->maskInfo_u16, CL42T_BITFIELD_TRIG_ENDSTOP_CCW) == BIT_IS_SET_16B)
                         && ((hwSigCmd_s.direction_e == f_MotorInfo_ps->endStoptrigger_e))))
                         {
-                            CL42T_LOG("[CL42T] Trigger End Stop ON, and pulse in this sens, abort cmd\r\n");
+                            CL42T_LOG("[CL42T] for motor %d, Trigger End Stop ON, and pulse in this sens, abort cmd\r\n", (t_uint16)f_MotorInfo_ps->selfId_e);
                             //---- we dropp that sequence and call user with the number of pulse dropped ----//
                             if(f_MotorInfo_ps->pulseDroppCallback_pcb != NULL_FUNCTION)
                             {
@@ -1603,11 +1603,17 @@ static t_eReturnCode s_CL42T_MotorCommandMngmt(t_sCL42T_MotorInfo * f_MotorInfo_
                                     isCmdSend_b = (t_bool)TRUE;
                                     f_MotorInfo_ps->startPulseTime_u32 = currentTime_u32;
 
-                                    if((hwSigCmd_s.nbPulses_u32 != CL42T_SEND_INFINITE_PULSE)
-                                    && (hwSigCmd_s.nbPulses_u32 != (t_sint32)0))
+                                    if(hwSigCmd_s.nbPulses_u32 != (t_sint32)0)
                                     {
-                                        f_MotorInfo_ps->estimPulseTime_f32 = (t_float32)hwSigCmd_s.nbPulses_u32 / hwSigCmd_s.frequency_f32;
-                                        f_MotorInfo_ps->estimPulseTime_f32 *= (t_float32)1000.0f; // let in ms
+                                        if(hwSigCmd_s.nbPulses_u32 == CL42T_SEND_INFINITE_PULSE)
+                                        {
+                                            f_MotorInfo_ps->estimPulseTime_f32 = (t_float32)(CST_MAX_UINT_32BIT);
+                                        }
+                                        else
+                                        {
+                                            f_MotorInfo_ps->estimPulseTime_f32 = (t_float32)hwSigCmd_s.nbPulses_u32 / hwSigCmd_s.frequency_f32;
+                                            f_MotorInfo_ps->estimPulseTime_f32 *= (t_float32)1000.0f; // let in ms
+                                        }
 
                                         if(hwSigCmd_s.direction_e == CL42T_MOTOR_DIRECTION_CW)
                                         {
@@ -1617,14 +1623,14 @@ static t_eReturnCode s_CL42T_MotorCommandMngmt(t_sCL42T_MotorInfo * f_MotorInfo_
                                         {
                                             SETBIT_16B(f_MotorInfo_ps->maskInfo_u16, CL42T_BITFILED_MOTOR_DIR);    
                                         }
+
                                         SETBIT_16B(f_MotorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ON);
                                         RESETBIT_16B(f_MotorInfo_ps->maskInfo_u16, CL42T_BITFIELD_TRIG_ENDSTOP_CW);
                                         RESETBIT_16B(f_MotorInfo_ps->maskInfo_u16, CL42T_BITFIELD_TRIG_ENDSTOP_CCW);
                                         f_MotorInfo_ps->endStoptrigger_e = CL42T_MOTOR_DIRECTION_NB;
                                     }
-                                    else 
+                                    else // nb pulse = 0
                                     {
-                                        f_MotorInfo_ps->estimPulseTime_f32 = (t_float32)(CST_MAX_UINT_32BIT);
                                         RESETBIT_16B(f_MotorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ON);
                                     }
                                     
@@ -1872,6 +1878,11 @@ static t_eReturnCode s_CL42T_DroppAllPulses(t_sCL42T_MotorInfo * f_motorInfo_ps)
                                                             (t_uint32)hwSigCmd_s.nbPulses_u32,
                                                             hwSigCmd_s.direction_e);
                 }
+            }
+            //---- no pulse to dropp -> OK ----//
+            else if(Ret_e == RC_WARNING_NO_OPERATION)
+            {
+                Ret_e = RC_OK;
             }
         }
     }
