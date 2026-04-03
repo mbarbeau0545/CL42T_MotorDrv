@@ -786,6 +786,7 @@ t_eReturnCode CL42T_SetMotorState(  t_eCL42T_MotorId f_motorId_e,
                                                     FMKIO_DIG_VALUE_HIGH);
                 if(Ret_e == RC_OK)
                 {
+                    FMKSRL_LOG("[CL42T] Disable motor %d\r\n", (t_uint32)motorInfo_ps->selfId_e);
                     RESETBIT_16B(motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ENABLE);
                 }
             }
@@ -798,6 +799,7 @@ t_eReturnCode CL42T_SetMotorState(  t_eCL42T_MotorId f_motorId_e,
             }
             if(Ret_e == RC_OK)
             {
+                FMKSRL_LOG("[CL42T] Stop motor %d\r\n", (t_uint32)motorInfo_ps->selfId_e);
                 RESETBIT_16B(motorInfo_ps->maskInfo_u16, CL42T_BITFIELD_MOTOR_ON);
                 //---- flush the queue and call user with dropp !!! @todo ----//
                 Ret_e = s_CL42T_DroppAllPulses(motorInfo_ps);
@@ -1361,11 +1363,11 @@ static t_eReturnCode s_CL42T_AddDiagSignal(  t_sCL42T_MotorInfo * f_motorInfo_ps
     {
         SignalInfo_ps = (t_sCL42T_MotorSignalInfo *)(&f_motorInfo_ps->signalId_au8[CL42T_SIGTYPE_DIAG]);
 
-        Ret_e = FMKIO_Set_InFreqSigCfg( *f_FreqSig_pe, 
-                                        FMKIO_STC_RISING_EDGE,
-                                        FMKIO_FREQ_MEAS_COUNT,
-                                        CL42T_IN_FREQ_SAMPLING, 
-                                        s_CL42T_SigErrorMngmt);
+        // Ret_e = FMKIO_Set_InFreqSigCfg( *f_FreqSig_pe, 
+        //                                 FMKIO_STC_RISING_EDGE,
+        //                                 FMKIO_FREQ_MEAS_COUNT,
+        //                                 CL42T_IN_FREQ_SAMPLING, 
+        //                                 s_CL42T_SigErrorMngmt);
 
         if(Ret_e == RC_OK)
         {
@@ -1395,12 +1397,12 @@ static t_eReturnCode s_CL42T_AddEndStopSignal(  t_sCL42T_MotorInfo * f_motorInfo
         if(f_endStopCfg_ps->EndStopSignal_e < FMKIO_INPUT_SIGEVNT_NB)
         {
             Ret_e = RC_OK;
-            Ret_e = FMKIO_Set_InEvntSigCfg( f_endStopCfg_ps->EndStopSignal_e,
-                                            f_endStopCfg_ps->PullMode_e,
-                                            f_endStopCfg_ps->triggerEvnt_e,
-                                            (t_uint32)f_endStopCfg_ps->debuncValue_u16,
-                                            s_CL42T_EvntEndStopCallback,
-                                            NULL_FUNCTION);
+            // Ret_e = FMKIO_Set_InEvntSigCfg( f_endStopCfg_ps->EndStopSignal_e,
+            //                                 f_endStopCfg_ps->PullMode_e,
+            //                                 f_endStopCfg_ps->triggerEvnt_e,
+            //                                 (t_uint32)f_endStopCfg_ps->debuncValue_u16,
+            //                                 s_CL42T_EvntEndStopCallback,
+            //                                 NULL_FUNCTION);
         }
         else
         {
@@ -1445,7 +1447,9 @@ static void s_CL42T_EvntEndStopCallback(t_eFMKIO_InEvntSig f_evntSig_e)
     }
     if(motorFound_b == (t_bool)TRUE)
     {
-        CL42T_LOG("[CL42T] Interruption from sig %d,  shut down motor...!!!\r\n", (t_uint32)f_evntSig_e);
+        CL42T_LOG(  "[CL42T] Interruption from sig %d,  shut down motor %d...!!!\r\n", 
+                    (t_uint32)f_evntSig_e,
+                    (t_uint32)motorInfo_ps->selfId_e);
         Ret_e = FMKIO_Set_OutPwmSigPulses(  motorInfo_ps->signalId_au8[CL42T_SIGTYPE_PULSE],
                                             CL42T_NOMINATIVE_FREQUENCY,
                                             CL42T_NOMINATIVE_DUTYCYCLE,
@@ -1592,13 +1596,7 @@ static t_eReturnCode s_CL42T_MotorCommandMngmt(t_sCL42T_MotorInfo * f_MotorInfo_
                                 
                                 if((Ret_e == RC_OK)
                                 || (Ret_e == RC_WARNING_ALREADY_CONFIGURED))
-                                {
-                                    CL42T_LOG("[CL42T] Send cmd to Motor %d, freq %d, pulses %d, dir %d\r\n",
-                                                (t_uint32)f_MotorInfo_ps->selfId_e,
-                                                (t_uint32)hwSigCmd_s.frequency_f32,
-                                                hwSigCmd_s.nbPulses_u32,
-                                                (t_uint32)hwSigCmd_s.direction_e);
-                                                
+                                {                                                
                                     //---- update flag ----//
                                     isCmdSend_b = (t_bool)TRUE;
                                     f_MotorInfo_ps->startPulseTime_u32 = currentTime_u32;
@@ -1607,10 +1605,21 @@ static t_eReturnCode s_CL42T_MotorCommandMngmt(t_sCL42T_MotorInfo * f_MotorInfo_
                                     {
                                         if(hwSigCmd_s.nbPulses_u32 == CL42T_SEND_INFINITE_PULSE)
                                         {
-                                            f_MotorInfo_ps->estimPulseTime_f32 = (t_float32)(CST_MAX_UINT_32BIT);
+                                            CL42T_LOG("[CL42T] Send cmd to Motor %d, freq %d, pulses infinite, dir %d\r\n",
+                                                (t_uint32)f_MotorInfo_ps->selfId_e,
+                                                (t_uint32)hwSigCmd_s.frequency_f32,
+                                                (t_uint32)hwSigCmd_s.direction_e);
+
+                                            f_MotorInfo_ps->estimPulseTime_f32 = ((t_float32)(CST_MAX_UINT_32BIT) -  2.0F * CL42T_OFFSET_PULSE);
                                         }
                                         else
                                         {
+                                            CL42T_LOG("[CL42T] Send cmd to Motor %d, freq %d, pulses %d, dir %d\r\n",
+                                                (t_uint32)f_MotorInfo_ps->selfId_e,
+                                                (t_uint32)hwSigCmd_s.frequency_f32,
+                                                hwSigCmd_s.nbPulses_u32,
+                                                (t_uint32)hwSigCmd_s.direction_e);
+
                                             f_MotorInfo_ps->estimPulseTime_f32 = (t_float32)hwSigCmd_s.nbPulses_u32 / hwSigCmd_s.frequency_f32;
                                             f_MotorInfo_ps->estimPulseTime_f32 *= (t_float32)1000.0f; // let in ms
                                         }
@@ -1658,7 +1667,7 @@ static t_eReturnCode s_CL42T_MotorCommandMngmt(t_sCL42T_MotorInfo * f_MotorInfo_
         else if(f_MotorInfo_ps->Health_e == CL42T_DIAGNOSTIC_OK)
         {
             //---- pulse controle managment ----//
-            if((currentTime_u32 - f_MotorInfo_ps->startPulseTime_u32) > (t_uint32)(f_MotorInfo_ps->estimPulseTime_f32 + 10.0f))
+            if((t_float32)(currentTime_u32 - f_MotorInfo_ps->startPulseTime_u32) > (f_MotorInfo_ps->estimPulseTime_f32 + CL42T_OFFSET_PULSE))
             {
                 ASSERT((t_uint16)(currentTime_u32 - f_MotorInfo_ps->startPulseTime_u32));
                 CL42T_LOG(  "[CL42T] Motor %d, Overflow of pulse detected, expected to last %d but %d ms has passed\r\n",
